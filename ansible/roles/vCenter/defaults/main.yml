@@ -1,5 +1,5 @@
 #ESXI-Settings
-esxi_address: '10.25.202.2'
+esxi_address: 'esxi01.vdi-experts.de'
 esxi_username: 'root'
 esxi_password: 'Password1,'
 esxi_datastore: 'datastore'
@@ -17,7 +17,7 @@ dns_servers: '10.25.202.1'
 domain: 'vdi-experts.de' # nichts eintragen, wenn DNS-Auflösung nicht möglich ist
 searchpath: ""
 vcsa_size: 'tiny'
-vcsa_ova_file: '/home/sleveling/euc-lab/ansible/roles/vCenter/sources/VMware-vCenter-Server-Appliance-8.0.2.00000-22385739_OVF10.ova'
+vcsa_ova_file: '/home/sleveling/euc-demo/ansible/roles/vCenter/sources/VMware-vCenter-Server-Appliance-8.0.2.00000-22385739_OVF10.ova'
 datastorename: 'datastore'
 datacenter_name: 'datacenter'
 cluster_name: 'vdi-experts'

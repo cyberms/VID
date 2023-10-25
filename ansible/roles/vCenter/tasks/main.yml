@@ -72,21 +72,6 @@
     state: present
   delegate_to: localhost
 
-  #- name: create cluster lab
-  #  vmware_cluster:
-  #    validate_certs: no
-  #    hostname: '{{ vcenter_hostname }}'
-  #    username: '{{ vcenter_username }}'
-  #    password: '{{ vcenter_password }}'
-  #    datacenter_name: '{{ datacenter_name }}'
-  #    cluster_name: "{{ cluster_name }}"
-  #    enable_ha: True
-  #    ha_vm_monitoring: vmMonitoringOnly
-  #    enable_drs: True
-  #    drs_default_vm_behavior: partiallyAutomated
-  #  register: cl_result
-  #  delegate_to: localhost
-
 - name: Create a VM folder virtualmachines
   vcenter_folder:
     hostname: '{{ vcenter_hostname }}'

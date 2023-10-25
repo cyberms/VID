@@ -14,7 +14,7 @@ common_remove_cdrom         = true
 // It is **not supported** to clone an encrypted virtual machine to the content library as an OVF Template. 
 // You can adjust the common content library settings to use VM Templates.
 common_template_conversion         = true
-common_content_library_name        = "euc-lab-lib"
+common_content_library_name        = "euc-demo-lib"
 common_content_library_ovf         = true
 common_content_library_destroy     = true
 common_content_library_skip_export = false
@@ -24,7 +24,7 @@ common_ovf_export_enabled   = false
 common_ovf_export_overwrite = true
 
 // Removable Media Settings
-common_iso_datastore = "ssd-datastore"
+common_iso_datastore = "datastore"
 
 // Boot and Provisioning Settings
 common_data_source      = "http"
