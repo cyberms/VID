@@ -1,7 +1,7 @@
 ---
 esxihosts:
   hosts:
-    esxi01:
+    esxi:
       ansible_connection: ssh
       ansible_port: 22
       ansible_host: 10.25.202.2
