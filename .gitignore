@@ -17,4 +17,4 @@ ansible/roles/vCenter/sources
 *.tfvars
 
 # Packer
-#packer/vars.json
+# packer/vars.json
