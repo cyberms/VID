@@ -1,0 +1,20 @@
+# Ansible
+ansible/roles/vCenter/sources
+#ansible/.vault_pass
+
+# VS Code
+**.vscode/*
+.DS_Store
+
+# Terraform
+#**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# .tfvars files
+*.tfvars
+
+# Packer
+#packer/vars.json

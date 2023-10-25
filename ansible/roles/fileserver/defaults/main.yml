@@ -1,0 +1,7 @@
+---
+# defaults file for win_share
+EUCSvaShare: C:\SVAShare
+WinShareCitrixDownload: https://downloads.citrix.com/20115/Citrix_Virtual_Apps_and_Desktops_7_2112.iso?__gda__=exp=1645451170~acl=/*~hmac=26e775a3431be99be333c1a815aaedb16aa0c997f91976d5f9f67cc192e76166
+WinShareMssqlInstallationSource: https://go.microsoft.com/fwlink/?linkid=866664
+WinShareCitrixPath: "{{ EUCSvaShare }}\\Citrix"
+WinShareMssqlPath: "{{ EUCSvaShare }}\\MSSQL"

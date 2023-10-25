@@ -1,0 +1,10 @@
+---
+esxihosts:
+  hosts:
+    esxi01:
+      ansible_connection: ssh
+      ansible_port: 22
+      ansible_host: 192.168.1.11
+      ansible_user: root
+      ansible_password: Password1,
+      

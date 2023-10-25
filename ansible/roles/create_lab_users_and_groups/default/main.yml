@@ -1,0 +1,16 @@
+---
+# AD-Settings
+
+domain: "euc-lab.de"
+netbios_domain: "euc-lab"
+domain_admin: "administrator@{{ domain }}"
+domain_admin_password: Password1
+
+# city_ou
+city_ou: Muenster # City OU under the root OU Citrix
+
+# all users will create based on a csv-file in files
+domainuser_password: Password1
+
+# all groups will create based on a csv-file in files
+

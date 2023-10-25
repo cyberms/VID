@@ -1,0 +1,10 @@
+---
+# AD-Settings
+
+domain: "euc-lab.de"
+netbios_domain: "euc-lab"
+domain_admin: "administrator@{{ domain }}"
+domain_admin_password: Password1
+
+# Variables to create OU-Structure and Users
+city_ou: Muenster # City OU under the root OU Citrix

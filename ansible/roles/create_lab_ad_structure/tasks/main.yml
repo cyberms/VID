@@ -1,0 +1,86 @@
+---
+#create ou-structure
+- name: Run Powershell to create OU-Structure
+  ansible.windows.win_powershell:  
+    parameters: 
+      city_ou: "{{ city_ou }}"
+    script: |
+
+      #set variables
+
+      [CmdletBinding()]
+      param (
+          [String]
+          $city_ou
+      )
+
+      $fulldomain = get-addomain
+      $dname = $fulldomain.DistinguishedName
+
+      #The command below uses the New-ADOrganizationUnit cmdlet to create a root OU called Department
+      New-ADOrganizationalUnit -Path "$dname" -Name "Citrix" -Verbose
+
+      #The commands below use the New-ADOrganizationUnit cmdlet to create a new sub 
+      #OUs called $city_ou (City)
+      New-ADOrganizationalUnit -Path "OU=Citrix,$dname" -Name $city_ou -Verbose
+
+      #Create OU Endpoints
+      New-ADOrganizationalUnit -Path "OU=$city_ou,OU=Citrix,$dname" -Name "Endpoints" -Verbose
+
+      #Create OU Groups with  child OU's POL, PUB, RES
+      New-ADOrganizationalUnit -Path "OU=$city_ou,OU=Citrix,$dname" -Name "Groups" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Groups,OU=$city_ou,OU=Citrix,$dname" -Name "POL" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Groups,OU=$city_ou,OU=Citrix,$dname" -Name "PUB" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Groups,OU=$city_ou,OU=Citrix,$dname" -Name "RES" -Verbose
+
+      #Create OU Management with child OU's Administrators, ServiceAccounts
+      New-ADOrganizationalUnit -Path "OU=$city_ou,OU=Citrix,$dname" -Name "Management" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Management,OU=$city_ou,OU=Citrix,$dname" -Name "Administrators" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Management,OU=$city_ou,OU=Citrix,$dname" -Name "ServiceAccounts" -Verbose
+
+      #Create OU Servers with child OU'S EXE, FSR, MGMT, SFC, SQL, STF, VDC
+      New-ADOrganizationalUnit -Path "OU=$city_ou,OU=Citrix,$dname" -Name "Servers" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Servers,OU=$city_ou,OU=Citrix,$dname" -Name "EXE" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Servers,OU=$city_ou,OU=Citrix,$dname" -Name "FSR" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Servers,OU=$city_ou,OU=Citrix,$dname" -Name "MGMT" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Servers,OU=$city_ou,OU=Citrix,$dname" -Name "SFC" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Servers,OU=$city_ou,OU=Citrix,$dname" -Name "SQL" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Servers,OU=$city_ou,OU=Citrix,$dname" -Name "STF" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Servers,OU=$city_ou,OU=Citrix,$dname" -Name "VDC" -Verbose
+
+      #Create OU Users with child OU's, DesignServices, Finance, IT, Management, Operations, Services
+      New-ADOrganizationalUnit -Path "OU=$city_ou,OU=Citrix,$dname" -Name "Users" -Verbose
+
+      #Create Child OU Users/DesignServives
+      New-ADOrganizationalUnit -Path "OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "DesignServices" -Verbose
+      New-ADOrganizationalUnit -Path "OU=DesignServices,OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Designers" -Verbose
+      New-ADOrganizationalUnit -Path "OU=DesignServices,OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Marketing" -Verbose
+
+      #Create Child OU Users/Finance
+      New-ADOrganizationalUnit -Path "OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Finance" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Finance,OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Accountants" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Finance,OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Auditors" -Verbose
+
+      #Create child OU Users/IT
+      New-ADOrganizationalUnit -Path "OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "IT" -Verbose
+      New-ADOrganizationalUnit -Path "OU=IT,OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Support" -Verbose
+
+      #Create child ou Users/Management
+      New-ADOrganizationalUnit -Path "OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Management" -Verbose
+
+      #Create child ou Users/Operations 
+      New-ADOrganizationalUnit -Path "OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Operations" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Operations,OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Executives" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Operations,OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "HR" -Verbose
+
+      #Create child ou Users/Services
+      New-ADOrganizationalUnit -Path "OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Services" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Services,OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Engineers" -Verbose
+      New-ADOrganizationalUnit -Path "OU=Services,OU=Users,OU=$city_ou,OU=Citrix,$dname" -Name "Technicians" -Verbose
+
+      #Create OU VDA with child OU' Desktops_OnPremiseSite, RemotePC_OnPremiseSite,Servers_CitrixCloudSite, Servers_OnPremiseSite
+      New-ADOrganizationalUnit -Path "OU=$city_ou,OU=Citrix,$dname" -Name "VDA" -Verbose
+      New-ADOrganizationalUnit -Path "OU=VDA,OU=$city_ou,OU=Citrix,$dname" -Name "Desktops_OnPremiseSite" -Verbose
+      New-ADOrganizationalUnit -Path "OU=VDA,OU=$city_ou,OU=Citrix,$dname" -Name "emotePC_OnPremiseSite" -Verbose
+      New-ADOrganizationalUnit -Path "OU=VDA,OU=$city_ou,OU=Citrix,$dname" -Name "Servers_CitrixCloudSite" -Verbose
+      New-ADOrganizationalUnit -Path "OU=VDA,OU=$city_ou,OU=Citrix,$dname" -Name "Servers_OnPremiseSite" -Verbose

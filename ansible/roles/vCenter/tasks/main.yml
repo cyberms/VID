@@ -1,0 +1,169 @@
+---
+############
+#Deploy VCSA
+############
+
+- name: deploy vcsa
+  community.vmware.vmware_deploy_ovf:
+    hostname: '{{ esxi_address }}'
+    username: '{{ esxi_username }}'
+    password: '{{ esxi_password }}'
+    name: '{{ vcenter_hostname }}' # shortname, not FQDN
+    datastore: '{{ datastorename }}'
+    networks: "{u'Network 1':u'{{ networkname }}'}"
+    #networks: "{u'VM Network':u'{{ networkname }}'}"
+    ovf: '{{ vcsa_ova_file }}'
+    wait_for_ip_address: true
+    validate_certs: no
+    inject_ovf_env: true
+    properties:
+      DeploymentOption.value: '{{ vcsa_size }}' # vCenter t-shirt size: tiny,small,medium,large, or infrastructure 
+      guestinfo.cis.appliance.net.addr.family: 'ipv4' # ipv4 or ipv6
+      guestinfo.cis.appliance.net.mode: 'static' # static or dhcp
+      guestinfo.cis.appliance.net.addr: '{{ vcenter_address }}' 
+      guestinfo.cis.appliance.net.pnid: '{{ vcenter_hostname }}' # FQDN of vcenter server
+      #guestinfo.cis.appliance.net.pnid: '{{ vcenter_address }}' # FQDN of vcenter server
+      guestinfo.cis.appliance.net.prefix: '{{ net_prefix }}' # netmask length, CIDR notation, i.e. '24'
+      guestinfo.cis.appliance.net.gateway: '{{ net_gateway }}' 
+      guestinfo.cis.appliance.net.dns.servers: '{{ dns_servers }}' # Comma separated list of IP addresses of DNS servers.
+      guestinfo.cis.appliance.root.passwd: '{{ vcenter_password }}' 
+      guestinfo.cis.ceip_enabled: "False"
+      guestinfo.cis.deployment.autoconfig: 'True' # Auto-configure after deployment
+      guestinfo.cis.vmdir.password: '{{ vcenter_password }}' # SSO Password for administrator@vsphere.local
+      guestinfo.cis.appliance.ssh.enabled: "true"
+      domain: '{{ domain }}'
+      searchpath: '{{ searchpath }}'
+  delegate_to: localhost
+
+- name: Wait for vCenter
+  community.vmware.vmware_about_info:
+    hostname: '{{ vcenter_hostname }}'
+    #hostname: '{{ vcenter_address }}' 
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    validate_certs: no
+  delegate_to: localhost
+  retries: 20
+  delay: 60
+  register: result
+  until: result is succeeded
+
+
+  ##############################
+  # basic configuration vcsa
+  ##############################
+
+- name: Provide information about vCenter
+  vmware_about_info:
+    hostname: '{{ vcenter_hostname }}'
+    validate_certs: no
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+  delegate_to: localhost
+  register: vcenter_about_info
+
+- name: create datacenter
+  vmware_datacenter:
+    validate_certs: no
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    datacenter_name: '{{ datacenter_name }}'
+    state: present
+  delegate_to: localhost
+
+  #- name: create cluster lab
+  #  vmware_cluster:
+  #    validate_certs: no
+  #    hostname: '{{ vcenter_hostname }}'
+  #    username: '{{ vcenter_username }}'
+  #    password: '{{ vcenter_password }}'
+  #    datacenter_name: '{{ datacenter_name }}'
+  #    cluster_name: "{{ cluster_name }}"
+  #    enable_ha: True
+  #    ha_vm_monitoring: vmMonitoringOnly
+  #    enable_drs: True
+  #    drs_default_vm_behavior: partiallyAutomated
+  #  register: cl_result
+  #  delegate_to: localhost
+
+- name: Create a VM folder virtualmachines
+  vcenter_folder:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    datacenter_name: '{{ datacenter_name }}'
+    folder_name: '{{ vm_folder }}'
+    folder_type: vm
+    state: present
+    validate_certs: no
+  register: vm_folder_creation_result
+  delegate_to: localhost
+
+- name: Create a template folder templates
+  community.vmware.vcenter_folder:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    datacenter_name: '{{ datacenter_name }}'
+    folder_name: '{{ template_folder }}'
+    folder_type: vm
+    state: present
+    validate_certs: no
+  register: template_folder_creation_result
+  delegate_to: localhost
+  
+###################
+# Add Host to VCSA
+###################
+
+- name: Add ESXi Host to vCenter
+  community.vmware.vmware_host:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    datacenter_name: '{{ datacenter_name }}'
+    folder: '/{{ datacenter_name }}/host'
+    # cluster: '{{ cluster_name }}'
+    esxi_hostname: '{{ esxi_address }}'
+    esxi_username: '{{ esxi_username }}'
+    esxi_password: '{{ esxi_password }}'
+    state: present
+    validate_certs: no
+  delegate_to: localhost
+
+
+########################
+# move Host to VM Folder
+########################
+
+- name: Move vcenter to vm folder
+  community.vmware.vmware_guest_move:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: '{{ datacenter_name }}'
+    name: '{{ vcenter_hostname }}'
+    dest_folder: "/{{ datacenter_name }}/vm/{{ vm_folder }}"
+    validate_certs: no
+  delegate_to: localhost
+
+##################################
+# Set Autostart on Host and VCSA #
+##################################
+
+- name: Update for powerInfo config of virtual machine.
+  community.vmware.vmware_host_auto_start:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    esxi_hostname: '{{ esxi_address }}'
+    name: '{{ vcenter_hostname }}'
+    validate_certs: no
+    power_info:
+      start_action: powerOn
+      start_delay: 10
+      start_order: 1
+      stop_action: powerOff
+      wait_for_heartbeat: true
+  delegate_to: localhost

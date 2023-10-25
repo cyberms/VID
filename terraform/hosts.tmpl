@@ -1,0 +1,48 @@
+# Ansible hosts ini
+
+[all]
+%{ for instance in instances_windows_server ~}
+${ instance.ip }  hostname=${ instance.name }
+%{ endfor }%{ for instance in instances_windows_client ~}
+${ instance.ip }  hostname=${ instance.name }
+%{ endfor }
+
+
+[windows]
+%{ for instance in instances_windows_server ~}
+${ instance.ip }
+%{ endfor }
+
+[svda]
+${ instances_windows_server[0].ip }
+
+[windowsDC]
+${ instances_windows_server[0].ip }
+
+[windowsDDC]
+${ instances_windows_client[0].ip }
+
+[windowsLICENSE]
+${ instances_windows_client[1].ip }
+
+[windowsSQL]
+${ instances_windows_client[1].ip }
+
+[windowsstorefront]
+${ instances_windows_client[2].ip }
+${ instances_windows_client[3].ip }
+
+[windowsPKI]
+${ instances_windows_client[5].ip }
+
+[hzbroker]
+${ instances_windows_client[4].ip }
+
+[windowsCLIENT]
+%{ for instance in instances_windows_client ~}
+${ instance.ip } 
+%{ endfor }
+
+
+[all:vars]
+dns_ip=${ instances_windows_server[0].ip }

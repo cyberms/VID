@@ -1,0 +1,9 @@
+---
+- hosts: pdc
+  vars:
+    ansible_become: yes
+    ansible_become_method: runas
+    ansible_become_user: "{{ domain_admin }}"
+    ansible_become_password: "{{ domain_admin_password }}"
+  roles:
+    - create_ad_structure

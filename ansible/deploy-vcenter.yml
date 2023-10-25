@@ -1,0 +1,5 @@
+# das ist ein Playbook 
+- name: vCenter deploy playbook
+  hosts: esxi01
+  roles:
+    - vCenter

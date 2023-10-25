@@ -1,0 +1,75 @@
+---
+# join domain
+- name: join domain
+  win_domain_membership:
+    dns_domain_name: "{{ domain }}"
+    domain_admin_user: "{{ domain_admin }}"
+    domain_admin_password: "{{ domain_admin_password }}"
+    #domain_ou_path: "OU=Windows,OU=Servers,DC=ansible,DC=vagrant"
+    state: domain
+  register: domain_joined
+
+- name: reboot after domain join
+  win_reboot:
+  when: domain_joined.reboot_required
+
+# Ordner auf der Maschine anlegen
+- name: Create SVA directory structure
+  ansible.windows.win_file:
+    path: "{{ EUCSvaShare }}"
+    state: directory
+
+# Citrix Part
+# ISO Download
+- name: Download ISO with sha256 checksum url to specified path
+  ansible.windows.win_get_url:
+    url: "{{ WinShareCitrixDownload }}"
+    dest: "{{ EUCSvaShare }}\\citrix_iso.iso"
+#    checksum: 9543c0d36459024ce2106d06435ca511c546e8e0056895dfe78869758a3e3c99
+#    checksum_algorithm: sha256
+    force: False
+
+# ISO mounten
+- name: Ensure an ISO is mounted
+  community.windows.win_disk_image:
+    image_path: "{{ EUCSvaShare }}\\citrix_iso.iso"
+    state: present
+  register: ddcisomount
+
+- debug:
+    var: ddcisomount
+
+# ISO Inhalt kopieren
+- name: Copy a folder recursively where the source is on the remote host
+  ansible.windows.win_copy:
+    src: "{{ ddcisomount.mount_paths[0] }}"
+    dest: "{{ WinShareCitrixPath }}"
+    remote_src: yes
+    force: False
+
+# MS SQL Part
+# ISO Download
+- name: Fetch SQL Media Downloader
+  win_get_url:
+    url: "{{ WinShareMssqlInstallationSource }}"
+    dest: "{{ EUCSvaShare }}\\SQL2019-SSEI-Eval.exe"
+
+# Box download
+- name: Use Media Downloader to fetch SQL Installation CABs to {{ WinShareMssqlPath }}
+  win_shell: "{{ EUCSvaShare }}\\SQL2019-SSEI-Eval.exe /Action=Download /MediaPath={{ WinShareMssqlPath }} /MediaType=CAB /Quiet"
+
+# Box Entpacken 
+- name: Extract SQL box file
+  win_shell: "{{ EUCSvaShare }}\\MSSQL\\SQLServer2019-x64-ENU.exe /qs /x:setup"
+  args:
+    chdir: "{{ EUCSvaShare }}\\MSSQL"
+
+# Share freigeben
+
+- name: Add Install Share
+  ansible.windows.win_share:
+    name: SVAShare
+    path: "{{ EUCSvaShare }}"
+    list: yes
+    full: Administratoren # Auf Englisch-Deutsche Benamsung achten!!!
+    read: Jeder

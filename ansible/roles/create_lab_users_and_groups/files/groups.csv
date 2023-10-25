@@ -1,0 +1,17 @@
+name;path;scope;category;desription
+CTX-Pub-Primary_Properties;OU=PUB,OU=Groups;DomainLocal;Security;
+CTX-RES_XDHelpDesk;OU=RES,OU=Groups;DomainLocal;Security;
+CTX-RES_XDAdmins;OU=RES,OU=Groups;DomainLocal;Security;
+CTX-RES_SQLAdmins;OU=RES,OU=Groups;DomainLocal;Security;
+CTX-RES_PVSAdmins;OU=RES,OU=Groups;DomainLocal;Security;
+CTX-RES_XDAdmins;OU=RES,OU=Groups;DomainLocal;Security;
+Marketing;OU=Marketing,OU=DesignServices,OU=Users;DomainLocal;Security;Marketing-Group
+Designers;OU=Designers,OU=DesignServices,OU=Users;DomainLocal;Security;Designers-Group
+Engineers;OU=Engineers,OU=Services,OU=Users;DomainLocal;Security;Engineers-Group
+Technicians;OU=Technicians,OU=Services,OU=Users;DomainLocal;Security;Technicians-Group
+HR;OU=HR,OU=Operations,OU=Users;DomainLocal;Security;HR-Group
+Executives;OU=Executives,OU=Operations,OU=Users;DomainLocal;Security;Executives-Group
+Support;OU=Support,OU=IT,OU=Users;DomainLocal;Security;Support-Group
+Accountants;OU=Accountants,OU=Finance,OU=Users;DomainLocal;Security;Accountants-Group
+Auditors;OU=Auditors,OU=Finance,OU=Users;DomainLocal;Security;Auditors-Group
+SQLAdminstrators;OU=Administrators,OU=Management;DomainLocal;Security;

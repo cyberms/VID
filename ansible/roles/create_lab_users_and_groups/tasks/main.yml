@@ -1,0 +1,171 @@
+---
+#create Users and Groups
+
+# copy users.csv
+- name: Create directory structure for scripts
+  ansible.windows.win_file:
+    path: C:\install\scripts\
+    state: directory
+
+- name: Copy .csv files
+  ansible.windows.win_copy:
+    src: files/
+    dest: C:\install\scripts\
+
+# create users
+- name: Run Powershell to create Users
+  ansible.windows.win_powershell:  
+    parameters: 
+      city_ou: "{{ city_ou }}"
+    script: |
+
+      #set variables
+      [CmdletBinding()]
+      param (
+          [String]
+          $city_ou
+      )
+
+      $fulldomain = get-addomain
+      $dname = $fulldomain.DistinguishedName
+      $domain = $fulldomain.DNSRoot
+
+      #Enter a path to your import CSV file
+      $ADUsers = Import-csv C:\install\scripts\users.csv -Delimiter ";"
+
+      # Loop through the CSV
+      foreach ($User in $ADUsers)
+      {
+
+            $Username    = $User.username
+            $Password    = $User.password
+            $Firstname   = $User.firstname
+            $Lastname    = $User.lastname
+            $Department  = $User.department
+            $OU          = $User.ou
+
+            #Check if the user account already exists in AD
+            if (Get-ADUser -F {SamAccountName -eq $Username})
+            {
+                    #If user does exist, output a warning message
+                    Write-Warning "A user account $Username has already exist in Active Directory."
+            }
+            else
+            {
+                    #If a user does not exist then create a new user account
+                
+              #Account will be created in the OU listed in the $OU variable in the CSV file; don’t forget to change the domain name in the"-UserPrincipalName" variable
+                    New-ADUser `
+                  -SamAccountName $Username `
+                  -UserPrincipalName "$Username@$domain" `
+                  -Name $Username `
+                  -Enabled $true `
+                  -ChangePasswordAtLogon $false `
+                  -DisplayName $Username `
+                  -Department $Department `
+                  -Path "$OU,OU=$city_ou,OU=Citrix,$dname" `
+                  -AccountPassword (convertto-securestring $Password -AsPlainText -Force)
+
+            }
+      }
+
+# create Groups
+- name: Run Powershell to create Users
+  ansible.windows.win_powershell:  
+    parameters: 
+      city_ou: "{{ city_ou }}"
+    script: |
+
+      #set variables
+      [CmdletBinding()]
+      param (
+          [String]
+          $city_ou
+      )
+      $fulldomain = get-addomain
+      $dname = $fulldomain.DistinguishedName
+      $domain = $fulldomain.DNSRoot
+
+      #Enter a path to your import CSV file
+      $groups = Import-csv C:\install\scripts\groups.csv -Delimiter ";"
+
+      # Loop through the CSV
+      foreach ($group in $groups)
+      {
+            $Name          = $group.name
+            $Path          = $group.path
+            $GroupScope    = $group.scope
+            $GroupCategory = $group.category
+            $Description   = $group.description
+
+            #Check if the user account already exists in AD
+            if (Get-ADGroup -F {Name -eq $name})
+            {
+                    #If user does exist, output a warning message
+                    Write-Warning "A group account $name has already exist in Active Directory."
+            }
+            else
+            {
+                    #If a group does not exist then create a new group account
+                
+              #Account will be created in the OU listed in the $OU variable in the CSV file; don’t forget to change the domain name in the"-UserPrincipalName" variable
+                    New-ADGroup `
+                  -Name $Name `
+                  -GroupScope $GroupScope `
+                  -GroupCategory $GroupCategory `
+                  -Description  $Description `
+                  -Path "$Path,OU=$city_ou,OU=Citrix,$dname"
+            }
+      }
+
+# create add Users to Groups
+- name: Run Powershell to create Users
+  ansible.windows.win_powershell:  
+    parameters: 
+      city_ou: "{{ city_ou }}"
+    script: |
+
+      #set variables
+      [CmdletBinding()]
+      param (
+          [String]
+          $city_ou
+      )
+      $fulldomain = get-addomain
+      $dname = $fulldomain.DistinguishedName
+      $domain = $fulldomain.DNSRoot 
+
+      #Enter a path to your import CSV file
+      $users = Import-csv C:\install\scripts\users.csv -Delimiter ";"
+
+            # Loop through the CSV
+            foreach ($user in $users)
+            {
+                  $ADUser          = $user.username
+                  $ADGroup         = $user.adgroup
+
+                  # User has no Group in CSV defined
+                  if ($ADGroup -eq '') {
+                  Write-Host "$ADUser has no Group definet in the CSV-File" -ForegroundColor Red
+                  continue
+              }
+                  
+                  # User from CSV not in AD
+                  if ($ADUser -eq $null) {
+                      Write-Host "$ADUser does not exist in AD" -ForegroundColor Red
+              }
+                  else {
+                  # Retrieve AD user group membership
+                  $ExistingGroups = Get-ADPrincipalGroupMembership -Identity $ADUser | Select-Object Name
+
+                  # User already member of group
+                  if ($ExistingGroups.Name -eq $ADGroup) {
+                      Write-Host "$ADUser already exists in $ADGroup" -ForeGroundColor Yellow
+                  }
+                  else {
+                      # Add user to group
+                      Add-ADGroupMember -Identity $ADGroup -Members $ADUser
+                      Write-Host "Added $UPN to $ADGroup" -ForeGroundColor Green
+                  }
+            }
+          }

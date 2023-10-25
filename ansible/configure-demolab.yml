@@ -1,0 +1,6 @@
+# das ist ein Playbook 
+- name: configure demolab
+  hosts: natgw01
+  become: true
+  roles:
+    - natgw

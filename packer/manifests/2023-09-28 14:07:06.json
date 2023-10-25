@@ -1,0 +1,32 @@
+{
+  "builds": [
+    {
+      "name": "windows-server-standard-dexp",
+      "builder_type": "vsphere-iso",
+      "files": null,
+      "artifact_id": "windows-server-2022-standard-dexp-main",
+      "packer_run_uuid": "9e28bf59-68d5-458a-bdc0-8e250a007f82",
+      "custom_data": {
+        "build_date": "2023-09-28 14:07 UTC",
+        "build_username": "adminst",
+        "build_version": "main",
+        "common_data_source": "http",
+        "common_vm_version": "19",
+        "vm_cpu_cores": "1",
+        "vm_cpu_count": "2",
+        "vm_disk_size": "102400",
+        "vm_disk_thin_provisioned": "true",
+        "vm_firmware": "efi-secure",
+        "vm_guest_os_type": "windows2019srvNext_64Guest",
+        "vm_mem_size": "4096",
+        "vm_network_card": "vmxnet3",
+        "vsphere_cluster": "cluster",
+        "vsphere_datacenter": "datacenter",
+        "vsphere_datastore": "nvme-datastore",
+        "vsphere_endpoint": "vcenter.euc-lab.de",
+        "vsphere_folder": "templates"
+      }
+    }
+  ],
+  "last_run_uuid": "9e28bf59-68d5-458a-bdc0-8e250a007f82"
+}
