@@ -17,5 +17,5 @@ variable "vsphere_password" {
 variable "vsphere_server" {
   description = "vsphere URL / IP address"
   type        = string
-  default     = "vcenter.euc-lab.de"
+  default     = "vcenter.vdi-experts.de"
 }
