@@ -1,6 +1,32 @@
 /*
     DESCRIPTION:
-    Microsoft Windows 11 Professional template using the Packer Builder for VMware vSphere (vsphere-iso).
+    Microsoft Windows 11 Professional + Citrix VDA master image template
+    using the Packer Builder for VMware vSphere (vsphere-iso).
+
+    Vendor Independence Day (VID) – Layer Classification:
+      Layer 5 – W11 OS Image    : Steps 1–6  (pure OS, hypervisor-agnostic)
+      Layer 6 – Drivers         : Step 2     (VMware Tools)
+      Layer 7 – Broker + Profile: Steps 7–10 (Citrix VDA, optimizations, MCS prep)
+
+    Build Pipeline:
+      1. Windows 11 unattended installation (autounattend.xml)    [Layer 5]
+      2. VMware Tools installation (windows-vmtools.ps1)          [Layer 6]
+      3. WinRM initialization (windows-init.ps1)                  [Layer 5]
+      4. Windows OS baseline hardening (windows-prepare.ps1)      [Layer 5]
+      5. Windows Updates – pre-VDA                                [Layer 5]
+      6. Reboot                                                   [Layer 5]
+      7. Citrix VDA silent installation (windows-citrix-vda.ps1)  [Layer 7a – Broker Agent]
+      8. Reboot to complete VDA installation                      [Layer 7a]
+      9. Post-VDA Windows Updates                                 [Layer 7a]
+     10. VDI optimizations (windows-citrix-optimize.ps1)          [Layer 7a+7b]
+     11. MCS master image cleanup (windows-citrix-mcs-prep.ps1)   [Layer 7]
+     12. Template / Content Library export for Citrix MCS
+
+    MCS Note: Sysprep is NOT required. MCS handles machine identity (SID,
+    hostname, domain join) automatically during provisioning.
+
+    VID Principle: Layer 5 (pure W11 OS) is broker-agnostic.
+    Layer 7 (VDA + Profile Management) is swappable without OS rebuild.
 */
 
 //  BLOCK: packer
@@ -37,7 +63,21 @@ locals {
   build_date         = formatdate("YYYY-MM-DD hh:mm ZZZ", timestamp())
   build_version      = data.git-repository.cwd.head
   build_description  = "Version: ${local.build_version}\nBuilt on: ${local.build_date}\n${local.build_by}"
-  iso_paths          = ["[${var.common_iso_datastore}] ${var.iso_path}/${var.iso_file}", "[] /vmimages/tools-isoimages/${var.vm_guest_os_family}.iso"]
+  // VMware Tools ISO path:
+  //   - Custom datastore: "[datastore2] vmwaretools/windows.iso"
+  //   - ESXi host-local:  "[] /vmimages/tools-isoimages/windows.iso"
+  // Controlled via vmtools_iso_datastore + vmtools_iso_path in sources.pkrvars.hcl
+  vmtools_iso_path_resolved = var.vmtools_iso_datastore != "" ? (
+    "[${var.vmtools_iso_datastore}] ${var.vmtools_iso_path}"
+  ) : (
+    "[] ${var.vmtools_iso_path}"
+  )
+  iso_paths = [
+    "[${var.common_iso_datastore}] ${var.iso_path}/${var.iso_file}",
+    local.vmtools_iso_path_resolved
+    // Citrix VDA is NOT mounted as ISO – installer is pulled from SMB at build time.
+    // See: scripts/windows/windows-citrix-vda.ps1 – Option A (SMB)
+  ]
   iso_checksum       = "${var.iso_checksum_type}:${var.iso_checksum_value}"
   manifest_date      = formatdate("YYYY-MM-DD hh:mm:ss", timestamp())
   manifest_path      = "${path.cwd}/manifests/"
@@ -130,8 +170,7 @@ source "vsphere-iso" "windows-desktop" {
   winrm_timeout  = var.communicator_timeout
 
   // Template and Content Library Settings
-  convert_to_template = true
-  # convert_to_template = var.common_template_conversion
+  convert_to_template = var.common_template_conversion
   # dynamic "content_library_destination" {
   #   for_each = var.common_content_library_name != null ? [1] : []
   #   content {
@@ -165,21 +204,25 @@ build {
     "source.vsphere-iso.windows-desktop",
   ]
 
+  // Step 1–4 [VID Layer 5 – W11 OS] + [Layer 6 – Drivers]: OS Baseline scripts
+  // windows-prepare.ps1: TLS hardening, Explorer settings, Passwort-Policy
   provisioner "powershell" {
     environment_vars = [
       "BUILD_USERNAME=${var.build_username}"
     ]
     elevated_user     = var.build_username
     elevated_password = var.build_password
-    scripts           = formatlist("${path.cwd}/%s", var.scripts)
+    scripts           = formatlist("${path.cwd}/%s", length(var.scripts_layer5) > 0 ? var.scripts_layer5 : var.scripts)
   }
 
+  // Step 2: Initial inline commands (e.g. clear event logs for clean baseline)
   provisioner "powershell" {
     elevated_user     = var.build_username
     elevated_password = var.build_password
     inline            = var.inline
   }
 
+  // Step 5 [VID Layer 5 – W11 OS]: Windows Updates (pre-VDA) – OS-level patches only
   provisioner "windows-update" {
     pause_before    = "30s"
     search_criteria = "IsInstalled=0"
@@ -191,6 +234,110 @@ build {
       "include:$true"
     ]
     restart_timeout = "120m"
+  }
+
+  // ── LAYER 7 STEPS (übersprungen wenn build_layer5_only = true) ──────────────
+
+  // Step 7 [VID Layer 7a – Broker Agent]: Citrix VDA Installation
+  // The VDA installer is pulled from the VID-Data SMB share at build time:
+  //   \\<vid_smb_server>\VID-Data\citrix\vda\<vid_vda_installer>
+  // Credentials are passed as environment variables; no domain join required.
+  // SWAP THIS STEP to replace Citrix with AVD Agent, Horizon Agent, etc.
+  //
+  // Fallback: if SMB env vars are not set, the script tries the vCenter
+  // Datastore Browser API (Option B), then CD-ROM detection.
+  dynamic "provisioner" {
+    for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      environment_vars  = [
+        // Option A – SMB Share (primary, hypervisor-agnostic)
+        "VID_SMB_SERVER=${var.vid_smb_server}",
+        "VID_SMB_SHARE=${var.vid_smb_share}",
+        "VID_SMB_USERNAME=${var.vid_smb_username}",
+        "VID_SMB_PASSWORD=${var.vid_smb_password}",
+        "VID_VDA_INSTALLER=${var.vid_vda_installer}",
+        // Option B – vCenter Datastore Browser (uncomment to use as fallback):
+        // "VCENTER_URL=https://${var.vsphere_endpoint}",
+        // "VCENTER_USERNAME=${var.vsphere_username}",
+        // "VCENTER_PASSWORD=${var.vsphere_password}",
+        // "VSPHERE_DATACENTER=${var.vsphere_datacenter}",
+        // "VID_DATASTORE=datastore2",
+        // "VID_PATH=VID-Data",
+      ]
+      scripts           = ["${path.cwd}/scripts/windows/windows-citrix-vda.ps1"]
+    }
+  }
+
+  // Step 8 [VID Layer 7a]: Reboot to complete VDA installation
+  dynamic "provisioner" {
+    for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["windows-restart"]
+    content {
+      restart_timeout       = "30m"
+      restart_check_command = "powershell -command \"& {Write-Output 'Restart completed'}\""
+    }
+  }
+
+  // Step 9 [VID Layer 7a]: Post-VDA Windows Updates
+  dynamic "provisioner" {
+    for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["windows-update"]
+    content {
+      pause_before    = "30s"
+      search_criteria = "IsInstalled=0"
+      filters = [
+        "exclude:$_.Title -like '*VMware*'",
+        "exclude:$_.Title -like '*Preview*'",
+        "exclude:$_.Title -like '*Defender*'",
+        "exclude:$_.InstallationBehavior.CanRequestUserInput",
+        "include:$true"
+      ]
+      restart_timeout = "120m"
+    }
+  }
+
+  // Step 10 [VID Layer 7a+7b – Broker + Profile]: VDI Optimizations
+  dynamic "provisioner" {
+    for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      scripts           = ["${path.cwd}/scripts/windows/windows-citrix-optimize.ps1"]
+    }
+  }
+
+  // Step 10b [VID Layer 8 – DEX/Monitoring]: für spätere Phase vorgesehen
+  // Skript: scripts/windows/windows-dex-agent.ps1 (ControlUp / uberagent)
+
+  // Step 11 [VID Layer 7 – Finalize]: MCS Master Image Preparation (cleanup, no sysprep!)
+  dynamic "provisioner" {
+    for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      scripts           = ["${path.cwd}/scripts/windows/windows-citrix-mcs-prep.ps1"]
+    }
+  }
+
+  // Step 12 [VID Layer 7 – Finalize]: Final event log clear before template export
+  dynamic "provisioner" {
+    for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      inline            = [
+        "Write-Output 'Performing final cleanup before template export...'",
+        "Get-EventLog -LogName * | ForEach { Clear-EventLog -LogName $_.Log }",
+        "Remove-Item -Path 'C:\\Windows\\Temp\\*' -Recurse -Force -ErrorAction SilentlyContinue",
+        "Write-Output 'Final cleanup complete. Image ready for MCS.'"
+      ]
+    }
   }
 
   post-processor "manifest" {

@@ -106,10 +106,12 @@
             <AcceptEula>true</AcceptEula>
             <FullName>${build_username}</FullName>
             <Organization>${build_username}</Organization>
+            %{ if vm_inst_os_kms_key != "" ~}
             <ProductKey>
                <Key>${vm_inst_os_kms_key}</Key>
                <WillShowUI>OnError</WillShowUI>
             </ProductKey>
+            %{ endif ~}
          </UserData>
          <EnableFirewall>false</EnableFirewall>
       </component>
@@ -194,18 +196,18 @@
                <RequiresUserInput>true</RequiresUserInput>
             </SynchronousCommand>
             <SynchronousCommand wcm:action="add">
-               <CommandLine>%SystemRoot%\system32\WindowsPowerShell\v1.0\powershell.exe -Command "Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Force"</CommandLine>
+               <CommandLine>%SystemRoot%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -Command "Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Force"</CommandLine>
                <Description>Set Execution Policy 32-Bit</Description>
                <Order>2</Order>
                <RequiresUserInput>true</RequiresUserInput>
             </SynchronousCommand>
             <SynchronousCommand wcm:action="add">
-               <CommandLine>%SystemRoot%\system32\WindowsPowerShell\v1.0\powershell.exe -File F:\windows-vmtools.ps1</CommandLine>
+               <CommandLine>%SystemRoot%\system32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File F:\windows-vmtools.ps1</CommandLine>
                <Order>3</Order>
                <Description>Install VMware Tools</Description>
             </SynchronousCommand>
             <SynchronousCommand wcm:action="add">
-               <CommandLine>%SystemRoot%\system32\WindowsPowerShell\v1.0\powershell.exe -File F:\windows-init.ps1</CommandLine>
+               <CommandLine>%SystemRoot%\system32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File F:\windows-init.ps1</CommandLine>
                <Order>4</Order>
                <Description>Initial Configuration</Description>
             </SynchronousCommand>

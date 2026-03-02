@@ -1,0 +1,120 @@
+{
+  "version": "1.0.0",
+  "description": "VID Layer 7 - Application Manifest for Windows 11 VDA Images",
+  "vid_layer": 7,
+  "hypervisor_independent": true,
+  "last_updated": "2026-03-02",
+  "groups": [
+    {
+      "name": "Runtime Environments",
+      "description": "Required runtimes and frameworks",
+      "enabled": true,
+      "apps": [
+        {
+          "name": "Microsoft Visual C++ Redistributable 2022 (x64)",
+          "winget_id": "Microsoft.VCRedist.2022.x64",
+          "chocolatey_id": "vcredist140",
+          "enabled": true
+        },
+        {
+          "name": "Microsoft Visual C++ Redistributable 2022 (x86)",
+          "winget_id": "Microsoft.VCRedist.2022.x86",
+          "chocolatey_id": "vcredist140",
+          "enabled": true
+        },
+        {
+          "name": ".NET 8 Runtime",
+          "winget_id": "Microsoft.DotNet.Runtime.8",
+          "chocolatey_id": "dotnet-runtime",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "name": "Productivity",
+      "description": "Standard productivity applications",
+      "enabled": true,
+      "apps": [
+        {
+          "name": "Microsoft 365 Apps (Office)",
+          "winget_id": "Microsoft.Office",
+          "chocolatey_id": "microsoft365",
+          "enabled": false,
+          "notes": "Enable if deploying M365 Apps via image"
+        },
+        {
+          "name": "7-Zip",
+          "winget_id": "7zip.7zip",
+          "chocolatey_id": "7zip",
+          "enabled": true
+        },
+        {
+          "name": "Adobe Acrobat Reader DC",
+          "winget_id": "Adobe.Acrobat.Reader.64-bit",
+          "chocolatey_id": "adobereader",
+          "enabled": true
+        },
+        {
+          "name": "Notepad++",
+          "winget_id": "Notepad++.Notepad++",
+          "chocolatey_id": "notepadplusplus",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "name": "Web Browsers",
+      "description": "Enterprise web browsers",
+      "enabled": true,
+      "apps": [
+        {
+          "name": "Microsoft Edge (Enterprise)",
+          "winget_id": "Microsoft.Edge",
+          "chocolatey_id": "microsoft-edge",
+          "enabled": true,
+          "notes": "Usually pre-installed on W11, included for version control"
+        },
+        {
+          "name": "Google Chrome (Enterprise)",
+          "winget_id": "Google.Chrome.EXE",
+          "chocolatey_id": "googlechromestandaloneenterprise64",
+          "enabled": false,
+          "notes": "Enable if Chrome is required alongside Edge"
+        }
+      ]
+    },
+    {
+      "name": "Security",
+      "description": "Security and endpoint tools",
+      "enabled": true,
+      "apps": [
+        {
+          "name": "Npcap (for network troubleshooting)",
+          "winget_id": "Npcap.Npcap",
+          "chocolatey_id": "npcap",
+          "enabled": false,
+          "notes": "Enable only if network capture tools are needed"
+        }
+      ]
+    },
+    {
+      "name": "IT Tools",
+      "description": "IT administration and support tools",
+      "enabled": false,
+      "apps": [
+        {
+          "name": "Sysinternals Suite",
+          "winget_id": "Microsoft.Sysinternals.Suite",
+          "chocolatey_id": "sysinternals",
+          "enabled": true
+        },
+        {
+          "name": "WinSCP",
+          "winget_id": "WinSCP.WinSCP",
+          "chocolatey_id": "winscp",
+          "enabled": true
+        }
+      ]
+    }
+  ]
+}

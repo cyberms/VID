@@ -289,6 +289,81 @@ variable "iso_checksum_type" {
   description = "The checksum algorithm used by the vendor. (e.g. 'sha256')"
 }
 
+// VMware Tools ISO
+
+variable "vmtools_iso_datastore" {
+  type        = string
+  description = "The vSphere datastore containing the VMware Tools ISO. Leave empty to use the ESXi host-local path. (e.g. 'datastore2')"
+  default     = ""
+}
+
+variable "vmtools_iso_path" {
+  type        = string
+  description = "Path to the VMware Tools ISO. Datastore-relative if vmtools_iso_datastore is set, or host-local path (e.g. '/vmimages/tools-isoimages/windows.iso')."
+  default     = "/vmimages/tools-isoimages/windows.iso"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VID-Data Settings
+// Central SMB repository for all VID build artefacts. Standard folder structure:
+//
+//   \\<server>\VID-Data\
+//     citrix\vda\          ← Citrix VDA installer (Layer 7a)
+//     citrix\optimize\     ← Optional: custom optimization scripts
+//     microsoft\avd\       ← AVD Agent (Phase 3)
+//     microsoft\fslogix\   ← FSLogix (Phase 2+)
+//     vmware\horizon\      ← Horizon Agent (optional)
+//     dex\controlup\       ← ControlUp Agent (Layer 8, later)
+//     dex\uberagent\       ← uberagent (Layer 8, later)
+//     drivers\vmware\      ← Additional VMware drivers (if needed)
+//     drivers\xenserver\   ← Additional XenServer drivers (if needed)
+//     apps\                ← Business app installers (Layer 7c)
+//
+// The same structure is used for every customer – only the files differ.
+// The VM does NOT need to be domain-joined; credentials are passed explicitly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+variable "vid_smb_server" {
+  type        = string
+  description = "UNC server hostname for the VID-Data SMB share. (e.g. 'fileserver.domain.local' or IP)"
+}
+
+variable "vid_smb_share" {
+  type        = string
+  description = "SMB share name for VID-Data. (e.g. 'VID-Data')"
+  default     = "VID-Data"
+}
+
+variable "vid_smb_username" {
+  type        = string
+  description = "Service account with read access to the VID-Data share. (e.g. 'DOMAIN\\svc-packer')"
+  sensitive   = true
+}
+
+variable "vid_smb_password" {
+  type        = string
+  description = "Password for the VID-Data SMB service account."
+  sensitive   = true
+}
+
+variable "vid_vda_installer" {
+  type        = string
+  description = "Filename of the Citrix VDA installer inside \\\\<server>\\VID-Data\\citrix\\vda\\. (e.g. 'VDAWorkstationSetup_2402.exe')"
+  default     = "VDAWorkstationSetup.exe"
+}
+
+// Option B – vSphere Datastore (legacy / vSphere-only fallback)
+// Uncomment if SMB is not available and you prefer the vCenter Datastore Browser API.
+//
+// variable "vid_data_datastore" {
+//   type    = string
+//   default = "datastore2"
+// }
+// variable "vid_data_path" {
+//   type    = string
+//   default = "VID-Data"
+// }
+
 variable "iso_checksum_value" {
   type        = string
   description = "The checksum value provided by the vendor."
@@ -393,7 +468,25 @@ variable "communicator_timeout" {
 
 variable "scripts" {
   type        = list(string)
-  description = "A list of scripts and their relative paths to transfer and run."
+  description = "Legacy: A list of scripts and their relative paths to transfer and run. Prefer scripts_layer5."
+  default     = []
+}
+
+// VID Build-Modus
+variable "build_layer5_only" {
+  type        = bool
+  description = "Nur Layer 5 bauen (OS + Updates, kein VDA). Für Tests des Golden Image ohne Broker-Agenten."
+  default     = false
+}
+
+// VID Layer 8 – DEX/Monitoring: für spätere Phase vorgesehen
+// Skript: scripts/windows/windows-dex-agent.ps1 (ControlUp / uberagent)
+// Variable und Provisioner hier einbauen wenn DEX-Phase startet.
+
+// Vendor Independence Day (VID) – Layer-annotated script variables
+variable "scripts_layer5" {
+  type        = list(string)
+  description = "[VID Layer 5 – W11 OS] Pure OS baseline scripts. Broker-agnostic and hypervisor-agnostic. Runs before any vendor tooling."
   default     = []
 }
 

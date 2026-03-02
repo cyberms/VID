@@ -64,8 +64,5 @@ $localAdministrator = (Get-LocalUser | Where-Object { $_.sid -like '*-500' }).na
 Set-LocalUser -Name $localAdministrator -PasswordNeverExpires $true
 Set-LocalUser -Name $BUILD_USERNAME -PasswordNeverExpires $true
 
-# Enable Remote Desktop.
-Write-Output "Enabling Remote Desktop..."
-Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0 | Out-Null
-Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 0
-Enable-NetFirewallRule -Group '@FirewallAPI.dll,-28752'
+# RDP wird durch den Citrix VDA-Installer aktiviert (windows-citrix-vda.ps1, Layer 7a).
+# Kein separates RDP-Enablement in Layer 5 erforderlich.

@@ -16,5 +16,15 @@ ansible/roles/vCenter/sources
 # .tfvars files
 *.tfvars
 
-# Packer
-# packer/vars.json
+# Packer – sensitive Konfiguration (Passwörter, Endpoints, Zugangsdaten)
+# Stattdessen *.pkrvars.hcl.example mit Platzhalterwerten verwenden.
+packer/config/vsphere.pkrvars.hcl
+packer/config/build.pkrvars.hcl
+packer/config/sources.pkrvars.hcl
+
+# Packer Cache und Build-Artefakte
+packer/packer_cache/
+packer/manifests/
+packer/artifacts/
+packer/*.log
+packer.log

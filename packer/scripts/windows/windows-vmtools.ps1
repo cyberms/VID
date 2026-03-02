@@ -30,14 +30,34 @@ Function Get-VMToolsInstalled {
     return $Version
 }
 
-# Set the current working directory to the CD-ROM that corresponds to the VMWare Tools .iso.
+# Automatisch das CD-Laufwerk finden, das setup.exe enthält (VMware Tools ISO).
+# Ab VMware Tools 12.5.0 nur noch setup.exe (64-bit), setup64.exe entfällt.
+# Laufwerksbuchstabe kann je nach Anzahl gemounteter ISOs variieren (D:, E:, F: ...).
 
-Set-Location E:
+Write-Output "Searching for VMware Tools installer on CD-ROM drives..."
+$VMToolsDrive = $null
+$VMToolsExe   = $null
+
+Get-WmiObject Win32_CDROMDrive | ForEach-Object {
+    $drive = $_.Drive
+    if (Test-Path "$drive\setup.exe") {
+        Write-Output "Found VMware Tools installer (setup.exe) at $drive"
+        $VMToolsDrive = $drive
+        $VMToolsExe   = "setup.exe"
+    }
+}
+
+if (-not $VMToolsDrive) {
+    Write-Error "VMware Tools installer not found on any CD-ROM drive. Ensure the VMware Tools ISO is attached."
+    exit 1
+}
+
+Set-Location $VMToolsDrive
 
 # Installation Attempt
 
-Write-Output "Installing VMware Tools..."
-Start-Process "setup64.exe" -ArgumentList '/s /v "/qb REBOOT=R"' -Wait
+Write-Output "Installing VMware Tools from $VMToolsDrive\$VMToolsExe ..."
+Start-Process $VMToolsExe -ArgumentList '/S /v "/qn REBOOT=R ADDLOCAL=ALL"' -Wait -WindowStyle Hidden
 
 # Check to see if the 'VMTools' service is in a 'Running' state.
 
@@ -78,8 +98,8 @@ if (-not $Running) {
 
   # Installation Attempt
 
-  Write-Output "Reintalling VMware Tools..."
-  Start-Process "setup64.exe" -ArgumentList '/s /v "/qb REBOOT=R"' -Wait
+  Write-Output "Reinstalling VMware Tools from $VMToolsDrive\$VMToolsExe ..."
+  Start-Process $VMToolsExe -ArgumentList '/S /v "/qn REBOOT=R ADDLOCAL=ALL"' -Wait -WindowStyle Hidden
 
   # Check to see if the 'VMTools' service is in a 'Running' state.
 

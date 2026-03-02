@@ -1,0 +1,15 @@
+/*
+    DESCRIPTION:
+    Build-Account-Credentials für alle Packer Builds.
+
+    SETUP: Datei kopieren und anpassen:
+      cp build.pkrvars.hcl.example build.pkrvars.hcl
+
+    build.pkrvars.hcl ist in .gitignore – wird NICHT committed.
+
+    Empfehlung für Produktion: Passwort als Umgebungsvariable setzen:
+      export PKR_VAR_build_password="<passwort>"
+*/
+
+build_username = "adminst"
+build_password = "CHANGE_ME"

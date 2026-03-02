@@ -1,0 +1,52 @@
+/*
+    DESCRIPTION:
+    Central source definitions for all external build resources.
+
+    SETUP: Datei kopieren und anpassen:
+      cp sources.pkrvars.hcl.example sources.pkrvars.hcl
+
+    sources.pkrvars.hcl ist in .gitignore – wird NICHT committed.
+
+    Update this file when:
+      - A new Windows version / cumulative update ISO is available
+      - A new VMware Tools version is available
+      - The SMB server or share structure changes
+      - The ISO datastore changes
+
+    DO NOT put vSphere connection credentials here → vsphere.pkrvars.hcl
+    DO NOT put build-user credentials here         → build.pkrvars.hcl
+    DO NOT put VM hardware settings here           → windows.auto.pkrvars.hcl
+*/
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Windows 11 ISO
+// SHA256: Get-FileHash <iso> -Algorithm SHA256   (PowerShell)
+//         sha256sum <iso>                        (Linux/WSL)
+// ─────────────────────────────────────────────────────────────────────────────
+
+common_iso_datastore = "datastore2"
+iso_path             = "iso"
+iso_file             = "windows11.iso"
+iso_checksum_type    = "sha256"
+iso_checksum_value   = "CHANGE_ME"
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VMware Tools ISO
+// Option A – Eigener Datastore (empfohlen)
+// Option B – ESXi Host-Pfad: vmtools_iso_datastore = ""
+//                             vmtools_iso_path = "/vmimages/tools-isoimages/windows.iso"
+// ─────────────────────────────────────────────────────────────────────────────
+
+vmtools_iso_datastore = "datastore2"
+vmtools_iso_path      = "iso/vmwaretools/windows.iso"
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VID-Data SMB Repository
+// Central store for VDA installer, DEX agents, drivers, app installers.
+// ─────────────────────────────────────────────────────────────────────────────
+
+vid_smb_server    = "fileserver.example.com"
+vid_smb_share     = "VID-Data"
+vid_smb_username  = "DOMAIN\\svc-packer"
+vid_smb_password  = "CHANGE_ME"
+vid_vda_installer = "VDAWorkstationSetup.exe"

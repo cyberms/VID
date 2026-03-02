@@ -1,0 +1,20 @@
+/*
+    DESCRIPTION:
+    VMware vSphere connection and infrastructure settings for all Packer builds.
+    
+    SETUP: Datei kopieren und anpassen:
+      cp vsphere.pkrvars.hcl.example vsphere.pkrvars.hcl
+    
+    vsphere.pkrvars.hcl ist in .gitignore – wird NICHT committed.
+*/
+
+vsphere_endpoint            = "vcenter.example.com"
+vsphere_username            = "administrator@vsphere.local"
+vsphere_password            = "CHANGE_ME"
+vsphere_insecure_connection = true
+
+vsphere_datacenter = "Datacenter"
+vsphere_cluster    = "Cluster"
+vsphere_datastore  = "datastore1"
+vsphere_network    = "VM Network"
+vsphere_folder     = "packer-builds"
