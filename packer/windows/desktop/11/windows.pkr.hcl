@@ -271,7 +271,18 @@ build {
 
   // ── LAYER 7 STEPS (übersprungen wenn build_layer5_only = true) ──────────────
 
-  // Step 7a [VID Layer 7c – Apps]: Applikationsinstallation
+  // Step 7a [VID Layer 7c – Apps]: apps-manifest.json auf VM hochladen
+  // Muss vor windows-apps-install.ps1 laufen, da das Script die Datei erwartet.
+  dynamic "provisioner" {
+    for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["file"]
+    content {
+      source      = "${path.cwd}/scripts/windows/apps-manifest.json"
+      destination = "C:/Windows/Temp/apps-manifest.json"
+    }
+  }
+
+  // Step 7b [VID Layer 7c – Apps]: Applikationsinstallation
   // Wird in w11-full UND w11-vda ausgeführt – unabhängig von Citrix.
   // Apps werden aus apps-manifest.json gelesen (SMB oder lokaler Pfad).
   dynamic "provisioner" {
