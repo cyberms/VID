@@ -236,6 +236,38 @@ build {
     restart_timeout = "120m"
   }
 
+  // ── LAYER 5→7 TRANSITION: Active Directory Domain Join ───────────────────────
+
+  // Step 6a [VID Layer 5→7]: Domain Join (optional, nur wenn domain_join_enabled = true)
+  // Erfolgt NACH Windows Updates und VOR der Citrix VDA Installation.
+  // Credentials werden aus build.pkrvars.hcl gelesen (nicht im Repo).
+  // OU-Pfad Beispiel: OU=GoldenImage,OU=VDI,OU=Clients,DC=sav-kb,DC=de
+  dynamic "provisioner" {
+    for_each = var.domain_join_enabled && !var.build_layer5_only ? [1] : []
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      environment_vars  = [
+        "PKR_VAR_domain_name=${var.domain_name}",
+        "PKR_VAR_domain_join_username=${var.domain_join_username}",
+        "PKR_VAR_domain_join_password=${var.domain_join_password}",
+        "PKR_VAR_domain_join_ou=${var.domain_join_ou}",
+      ]
+      scripts = ["${path.cwd}/scripts/windows/windows-domain-join.ps1"]
+    }
+  }
+
+  // Step 6b: Neustart nach Domain-Join
+  dynamic "provisioner" {
+    for_each = var.domain_join_enabled && !var.build_layer5_only ? [1] : []
+    labels   = ["windows-restart"]
+    content {
+      restart_timeout       = "15m"
+      restart_check_command = "powershell -command \"& {Write-Output 'Domain-Join Neustart abgeschlossen'}\""
+    }
+  }
+
   // ── LAYER 7 STEPS (übersprungen wenn build_layer5_only = true) ──────────────
 
   // Step 7 [VID Layer 7a – Broker Agent]: Citrix VDA Installation

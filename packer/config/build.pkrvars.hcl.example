@@ -1,15 +1,41 @@
 /*
     DESCRIPTION:
-    Build-Account-Credentials für alle Packer Builds.
+    Build-Account-Credentials und Active Directory Domain-Join Konfiguration.
 
     SETUP: Datei kopieren und anpassen:
       cp build.pkrvars.hcl.example build.pkrvars.hcl
 
     build.pkrvars.hcl ist in .gitignore – wird NICHT committed.
 
-    Empfehlung für Produktion: Passwort als Umgebungsvariable setzen:
+    Empfehlung für Produktion: Passwörter als Umgebungsvariablen setzen:
       export PKR_VAR_build_password="<passwort>"
+      export PKR_VAR_domain_join_password="<passwort>"
 */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Packer Build-Account (lokaler Administrator während des Builds)
+// Wird in autounattend.xml als LocalAccount angelegt.
+// ─────────────────────────────────────────────────────────────────────────────
 
 build_username = "adminst"
 build_password = "CHANGE_ME"
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Active Directory Domain Join
+// Wird NACH Windows Updates und VOR der Citrix VDA Installation ausgeführt.
+//
+// domain_join_enabled: auf true setzen um den Domain-Join zu aktivieren
+// domain_name:         FQDN der AD-Domain (e.g. "sav-kb.de")
+// domain_join_username: Service-Account mit Domain-Join-Berechtigung
+//                       Format: "UPN" (svc-packer@sav-kb.de)
+//                           oder "DOMAIN\user" (SAV-KB\svc-packer)
+// domain_join_ou:      Ziel-OU im LDAP-Format
+//                      AD-Pfad:   sav-kb.de/Clients/VDI/GoldenImage
+//                      LDAP-Format: OU=GoldenImage,OU=VDI,OU=Clients,DC=sav-kb,DC=de
+// ─────────────────────────────────────────────────────────────────────────────
+
+domain_join_enabled  = true
+domain_name          = "sav-kb.de"
+domain_join_username = "svc-packer@sav-kb.de"
+domain_join_password = "CHANGE_ME"
+domain_join_ou       = "OU=GoldenImage,OU=VDI,OU=Clients,DC=sav-kb,DC=de"

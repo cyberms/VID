@@ -479,6 +479,47 @@ variable "build_layer5_only" {
   default     = false
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Active Directory Domain Join (VID Layer 5 → 7 Transition)
+// Domain-Join erfolgt NACH Windows Updates und VOR der Citrix VDA Installation.
+// Credentials werden aus build.pkrvars.hcl gelesen (nicht im Repo gespeichert).
+//
+// OU-Pfad im LDAP-Format: OU=GoldenImage,OU=VDI,OU=Clients,DC=sav-kb,DC=de
+// (entspricht AD-Pfad:     sav-kb.de/Clients/VDI/GoldenImage)
+// ─────────────────────────────────────────────────────────────────────────────
+
+variable "domain_join_enabled" {
+  type        = bool
+  description = "Domain-Join während des Packer-Builds aktivieren (vor VDA-Installation)."
+  default     = false
+}
+
+variable "domain_name" {
+  type        = string
+  description = "FQDN der Active Directory Domain. (e.g. 'sav-kb.de')"
+  default     = ""
+}
+
+variable "domain_join_username" {
+  type        = string
+  description = "Service-Account für den Domain-Join. (e.g. 'svc-packer@sav-kb.de')"
+  sensitive   = true
+  default     = ""
+}
+
+variable "domain_join_password" {
+  type        = string
+  description = "Passwort des Domain-Join Service-Accounts."
+  sensitive   = true
+  default     = ""
+}
+
+variable "domain_join_ou" {
+  type        = string
+  description = "Ziel-OU im LDAP-Format. (e.g. 'OU=GoldenImage,OU=VDI,OU=Clients,DC=sav-kb,DC=de')"
+  default     = ""
+}
+
 // VID Layer 8 – DEX/Monitoring: für spätere Phase vorgesehen
 // Skript: scripts/windows/windows-dex-agent.ps1 (ControlUp / uberagent)
 // Variable und Provisioner hier einbauen wenn DEX-Phase startet.
