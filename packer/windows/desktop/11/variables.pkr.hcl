@@ -349,7 +349,7 @@ variable "vid_smb_password" {
 variable "vid_vda_installer" {
   type        = string
   description = "Filename of the Citrix VDA installer inside \\\\<server>\\VID-Data\\citrix\\vda\\. (e.g. 'VDAWorkstationSetup_2402.exe')"
-  default     = "VDAWorkstationSetup.exe"
+  default     = "VDAWorkstationSetup_2511.exe"
 }
 
 // Option B – vSphere Datastore (legacy / vSphere-only fallback)

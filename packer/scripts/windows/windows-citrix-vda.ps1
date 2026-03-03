@@ -62,8 +62,8 @@ Write-Log "OS: $([System.Environment]::OSVersion.VersionString)"
 # ─────────────────────────────────────────────────────────────────────────────
 
 $VdaExe       = $null
-$LocalInstall = "C:\Windows\Temp\VDAWorkstationSetup.exe"
-$VdaFileName  = if ($env:VID_VDA_INSTALLER) { $env:VID_VDA_INSTALLER } else { "VDAWorkstationSetup.exe" }
+$VdaFileName  = if ($env:VID_VDA_INSTALLER) { $env:VID_VDA_INSTALLER } else { "VDAWorkstationSetup_2511.exe" }
+$LocalInstall = "C:\Windows\Temp\$VdaFileName"
 
 # ── Option A: SMB Share (primary / hypervisor-agnostic) ──────────────────────
 # Requires: VID_SMB_SERVER, VID_SMB_SHARE, VID_SMB_USERNAME, VID_SMB_PASSWORD
