@@ -289,23 +289,9 @@ build {
     }
   }
 
-  // Step 7b [VID Layer 8 – DEX/Monitoring]: DEX Agent Installation
-  // Wird in w11-full UND w11-vda ausgeführt – unabhängig von Citrix.
-  dynamic "provisioner" {
-    for_each = var.build_layer5_only ? [] : [1]
-    labels   = ["powershell"]
-    content {
-      elevated_user     = var.build_username
-      elevated_password = var.build_password
-      environment_vars  = [
-        "VID_SMB_SERVER=${var.vid_smb_server}",
-        "VID_SMB_SHARE=${var.vid_smb_share}",
-        "VID_SMB_USERNAME=${var.vid_smb_username}",
-        "VID_SMB_PASSWORD=${var.vid_smb_password}",
-      ]
-      scripts = ["${path.cwd}/scripts/windows/windows-dex-agent.ps1"]
-    }
-  }
+  // Step 7b [VID Layer 8 – DEX/Monitoring]: DEAKTIVIERT – kommt am Ende des Projekts
+  // Skript vorhanden: scripts/windows/windows-dex-agent.ps1
+  // Provisioner hier einkommentieren wenn DEX-Phase startet.
 
   // ── CITRIX STEPS (nur wenn build_include_citrix = true) ─────────────────────
 
