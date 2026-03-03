@@ -63,7 +63,7 @@ build_w11_vda_vmware() {
     -var-file=./config/build.pkrvars.hcl \
     -var-file=./config/common.pkrvars.hcl \
     -var-file=./config/sources.pkrvars.hcl \
-    ./windows/desktop/11/windows.pkr.hcl
+    ./windows/desktop/11/
 
   BUILD_EXIT=$?
   if [ $BUILD_EXIT -eq 0 ]; then
@@ -94,7 +94,7 @@ build_w11_vda_xenserver() {
     -var-file=./config/build.pkrvars.hcl \
     -var-file=./config/common.pkrvars.hcl \
     -var-file=./config/sources.pkrvars.hcl \
-    ./windows/desktop/11-xenserver/windows.pkr.hcl
+    ./windows/desktop/11-xenserver/
 
   BUILD_EXIT=$?
   if [ $BUILD_EXIT -eq 0 ]; then
@@ -221,7 +221,7 @@ build_server2022() {
     -var-file=./config/build.pkrvars.hcl \
     -var-file=./config/common.pkrvars.hcl \
     -var-file=./config/sources.pkrvars.hcl \
-    ./windows/server/2022/windows-server.pkr.hcl
+    ./windows/server/2022/
 
   BUILD_EXIT=$?
   if [ $BUILD_EXIT -eq 0 ]; then

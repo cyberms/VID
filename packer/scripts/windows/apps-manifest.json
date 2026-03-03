@@ -86,7 +86,7 @@
     {
       "name": "Security",
       "description": "Security and endpoint tools",
-      "enabled": true,
+      "enabled": false,
       "apps": [
         {
           "name": "Npcap (for network troubleshooting)",
@@ -106,13 +106,13 @@
           "name": "Sysinternals Suite",
           "winget_id": "Microsoft.Sysinternals.Suite",
           "chocolatey_id": "sysinternals",
-          "enabled": true
+          "enabled": false
         },
         {
           "name": "WinSCP",
           "winget_id": "WinSCP.WinSCP",
           "chocolatey_id": "winscp",
-          "enabled": true
+          "enabled": false
         }
       ]
     }
