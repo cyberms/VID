@@ -7,11 +7,17 @@
 #   ./build.sh [target]
 #
 # Targets:
-#   w11-base    Windows 11 Basis-Image (Layer 1–3: OS + VMware Tools + Updates)
-#   w11-vda     Vollständiges Master-Image (Layer 1–8: inkl. Citrix VDA + MCS-Seal)
-#   pipeline    Build + Test-Katalog aktualisieren
+#   w11-base    Layer 5:       OS + VMware Tools + Windows Updates (schnellster Test)
+#   w11-full    Layer 5+6+7c+8: Alles außer Citrix – inkl. Domain-Join, Apps, DEX
+#   w11-vda     Layer 5–8:     Vollständiges Master-Image inkl. Citrix VDA + MCS-Seal
+#   pipeline    Build + Test-Katalog in Citrix DaaS aktualisieren
 #   promote     Letztes Image in Prod-Katalog promoten
 #   server2022  Windows Server 2022 Image
+#
+# Empfohlene Reihenfolge beim ersten Aufbau:
+#   1. ./build.sh w11-base   → OS-Basis testen
+#   2. ./build.sh w11-full   → Alles ohne Citrix testen
+#   3. ./build.sh w11-vda    → Finales Image mit Citrix
 #
 # Kein Target → w11-vda (vollständiger Build)
 # =============================================================================

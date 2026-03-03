@@ -479,6 +479,12 @@ variable "build_layer5_only" {
   default     = false
 }
 
+variable "build_include_citrix" {
+  type        = bool
+  description = "Citrix-Integration einschließen (VDA, Optimierungen, MCS-Prep). false = w11-full ohne Citrix."
+  default     = true
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Active Directory Domain Join (VID Layer 5 → 7 Transition)
 // Domain-Join erfolgt NACH Windows Updates und VOR der Citrix VDA Installation.

@@ -270,16 +270,51 @@ build {
 
   // ── LAYER 7 STEPS (übersprungen wenn build_layer5_only = true) ──────────────
 
-  // Step 7 [VID Layer 7a – Broker Agent]: Citrix VDA Installation
-  // The VDA installer is pulled from the VID-Data SMB share at build time:
-  //   \\<vid_smb_server>\VID-Data\citrix\vda\<vid_vda_installer>
-  // Credentials are passed as environment variables; no domain join required.
-  // SWAP THIS STEP to replace Citrix with AVD Agent, Horizon Agent, etc.
-  //
-  // Fallback: if SMB env vars are not set, the script tries the vCenter
-  // Datastore Browser API (Option B), then CD-ROM detection.
+  // Step 7a [VID Layer 7c – Apps]: Applikationsinstallation
+  // Wird in w11-full UND w11-vda ausgeführt – unabhängig von Citrix.
+  // Apps werden aus apps-manifest.json gelesen (SMB oder lokaler Pfad).
   dynamic "provisioner" {
     for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      environment_vars  = [
+        "VID_SMB_SERVER=${var.vid_smb_server}",
+        "VID_SMB_SHARE=${var.vid_smb_share}",
+        "VID_SMB_USERNAME=${var.vid_smb_username}",
+        "VID_SMB_PASSWORD=${var.vid_smb_password}",
+      ]
+      scripts = ["${path.cwd}/scripts/windows/windows-apps-install.ps1"]
+    }
+  }
+
+  // Step 7b [VID Layer 8 – DEX/Monitoring]: DEX Agent Installation
+  // Wird in w11-full UND w11-vda ausgeführt – unabhängig von Citrix.
+  dynamic "provisioner" {
+    for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      environment_vars  = [
+        "VID_SMB_SERVER=${var.vid_smb_server}",
+        "VID_SMB_SHARE=${var.vid_smb_share}",
+        "VID_SMB_USERNAME=${var.vid_smb_username}",
+        "VID_SMB_PASSWORD=${var.vid_smb_password}",
+      ]
+      scripts = ["${path.cwd}/scripts/windows/windows-dex-agent.ps1"]
+    }
+  }
+
+  // ── CITRIX STEPS (nur wenn build_include_citrix = true) ─────────────────────
+
+  // Step 8 [VID Layer 7a – Broker Agent]: Citrix VDA Installation
+  // The VDA installer is pulled from the VID-Data SMB share at build time:
+  //   \\<vid_smb_server>\VID-Data\citrix\vda\<vid_vda_installer>
+  // SWAP THIS STEP to replace Citrix with AVD Agent, Horizon Agent, etc.
+  dynamic "provisioner" {
+    for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["powershell"]
     content {
       elevated_user     = var.build_username
@@ -303,9 +338,9 @@ build {
     }
   }
 
-  // Step 8 [VID Layer 7a]: Reboot to complete VDA installation
+  // Step 9 [VID Layer 7a]: Reboot to complete VDA installation
   dynamic "provisioner" {
-    for_each = var.build_layer5_only ? [] : [1]
+    for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["windows-restart"]
     content {
       restart_timeout       = "30m"
@@ -313,9 +348,9 @@ build {
     }
   }
 
-  // Step 9 [VID Layer 7a]: Post-VDA Windows Updates
+  // Step 10 [VID Layer 7a]: Post-VDA Windows Updates
   dynamic "provisioner" {
-    for_each = var.build_layer5_only ? [] : [1]
+    for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["windows-update"]
     content {
       pause_before    = "30s"
@@ -331,9 +366,9 @@ build {
     }
   }
 
-  // Step 10 [VID Layer 7a+7b – Broker + Profile]: VDI Optimizations
+  // Step 11 [VID Layer 7a+7b – Broker + Profile]: VDI Optimizations (Citrix)
   dynamic "provisioner" {
-    for_each = var.build_layer5_only ? [] : [1]
+    for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["powershell"]
     content {
       elevated_user     = var.build_username
@@ -342,12 +377,9 @@ build {
     }
   }
 
-  // Step 10b [VID Layer 8 – DEX/Monitoring]: für spätere Phase vorgesehen
-  // Skript: scripts/windows/windows-dex-agent.ps1 (ControlUp / uberagent)
-
-  // Step 11 [VID Layer 7 – Finalize]: MCS Master Image Preparation (cleanup, no sysprep!)
+  // Step 12 [VID Layer 7 – Finalize]: MCS Master Image Preparation (cleanup, no sysprep!)
   dynamic "provisioner" {
-    for_each = var.build_layer5_only ? [] : [1]
+    for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["powershell"]
     content {
       elevated_user     = var.build_username
@@ -356,7 +388,7 @@ build {
     }
   }
 
-  // Step 12 [VID Layer 7 – Finalize]: Final event log clear before template export
+  // Step 13 [VID – Finalize]: Final event log clear (immer, außer Layer5-only)
   dynamic "provisioner" {
     for_each = var.build_layer5_only ? [] : [1]
     labels   = ["powershell"]

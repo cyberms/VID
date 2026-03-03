@@ -108,6 +108,45 @@ build_w11_vda_xenserver() {
   fi
 }
 
+# ── Windows 11 Full Image – alles außer Citrix (Layer 5+6+7c+8) ──────────────
+build_w11_full() {
+  echo ""
+  echo "=========================================================="
+  echo "  [VID] Building Windows 11 Full Image (ohne Citrix)"
+  echo "  Layer 5 – W11 OS + Updates"
+  echo "  Layer 6 – VMware Tools"
+  echo "  Layer 7c – Applikationen"
+  echo "  Layer 8 – DEX Agent / Monitoring"
+  echo "  + Domain-Join (wenn domain_join_enabled = true)"
+  echo "  OHNE: Citrix VDA, Optimierungen, MCS-Prep"
+  echo "=========================================================="
+
+  local packer_dir="./windows/desktop/11/"
+
+  echo "[1/3] Initializing Packer plugins..."
+  packer init "$packer_dir"
+
+  echo "[2/3] Starting Packer build (w11-full, build_include_citrix=false)..."
+  packer build -force \
+    --only vsphere-iso.windows-desktop \
+    -var "build_include_citrix=false" \
+    -var-file=./config/vsphere.pkrvars.hcl \
+    -var-file=./config/build.pkrvars.hcl \
+    -var-file=./config/common.pkrvars.hcl \
+    -var-file=./config/sources.pkrvars.hcl \
+    "$packer_dir"
+
+  BUILD_EXIT=$?
+  if [ $BUILD_EXIT -eq 0 ]; then
+    echo "[3/3] W11 Full Image (ohne Citrix) build SUCCESS."
+    echo "      Image ist bereit für manuelle Tests und Citrix-Integration."
+    echo "      Nächster Schritt: ./build.sh w11-vda für vollständigen Build mit Citrix VDA."
+  else
+    echo "[3/3] W11 Full Image build FAILED (exit code: $BUILD_EXIT)."
+    exit $BUILD_EXIT
+  fi
+}
+
 # ── Windows 11 Base Image – nur Layer 5 (kein VDA) ───────────────────────────
 build_w11_base() {
   echo ""
@@ -308,6 +347,10 @@ case "$BUILD_TARGET" in
   "w11-base")
     # Nur Layer 5: W11 OS + Updates, kein VDA – für Testläufe
     build_w11_base
+    ;;
+  "w11-full")
+    # Layer 5+6+7c+8: Alles außer Citrix – OS, Updates, Domain-Join, Apps, DEX
+    build_w11_full
     ;;
   "w11-vda")
     # Vollständiger Build: Layer 5 + 6 + 7 (OS + Drivers + VDA)
