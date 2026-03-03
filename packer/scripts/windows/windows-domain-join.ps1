@@ -15,7 +15,8 @@ param(
     [string]$DomainName     = $env:PKR_VAR_domain_name,
     [string]$DomainUser     = $env:PKR_VAR_domain_join_username,
     [string]$DomainPassword = $env:PKR_VAR_domain_join_password,
-    [string]$OUPath         = $env:PKR_VAR_domain_join_ou
+    [string]$OUPath         = $env:PKR_VAR_domain_join_ou,
+    [string]$ComputerName   = $env:PKR_VAR_domain_join_computer_name
 )
 
 # ── Eingaben prüfen ───────────────────────────────────────────────────────────
@@ -27,9 +28,10 @@ if (-not $DomainName -or -not $DomainUser -or -not $DomainPassword) {
 
 Write-Output "=========================================================="
 Write-Output "  VID – Active Directory Domain Join"
-Write-Output "  Domain : $DomainName"
-Write-Output "  OU     : $(if ($OUPath) { $OUPath } else { 'Standard (CN=Computers)' })"
-Write-Output "  Account: $DomainUser"
+Write-Output "  Domain  : $DomainName"
+Write-Output "  OU      : $(if ($OUPath) { $OUPath } else { 'Standard (CN=Computers)' })"
+Write-Output "  Account : $DomainUser"
+Write-Output "  ComputerName: $(if ($ComputerName) { $ComputerName } else { '(Windows-generiert)' })"
 Write-Output "=========================================================="
 
 # ── Secure Credential erstellen ───────────────────────────────────────────────
@@ -56,6 +58,11 @@ try {
 
     if ($OUPath) {
         $JoinParams["OUPath"] = $OUPath
+    }
+
+    if ($ComputerName) {
+        $JoinParams["NewName"] = $ComputerName
+        Write-Output "Computer wird umbenannt zu: $ComputerName"
     }
 
     Add-Computer @JoinParams

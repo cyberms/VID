@@ -526,6 +526,12 @@ variable "domain_join_ou" {
   default     = ""
 }
 
+variable "domain_join_computer_name" {
+  type        = string
+  description = "Name des Computer-Accounts im AD. Leer = Windows-generierter Name. (e.g. 'VID-W11-BUILD')"
+  default     = ""
+}
+
 // VID Layer 8 – DEX/Monitoring: für spätere Phase vorgesehen
 // Skript: scripts/windows/windows-dex-agent.ps1 (ControlUp / uberagent)
 // Variable und Provisioner hier einbauen wenn DEX-Phase startet.

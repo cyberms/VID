@@ -253,6 +253,7 @@ build {
         "PKR_VAR_domain_join_username=${var.domain_join_username}",
         "PKR_VAR_domain_join_password=${var.domain_join_password}",
         "PKR_VAR_domain_join_ou=${var.domain_join_ou}",
+        "PKR_VAR_domain_join_computer_name=${var.domain_join_computer_name}",
       ]
       scripts = ["${path.cwd}/scripts/windows/windows-domain-join.ps1"]
     }

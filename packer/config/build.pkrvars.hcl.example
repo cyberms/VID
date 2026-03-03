@@ -34,8 +34,9 @@ build_password = "CHANGE_ME"
 //                      LDAP-Format: OU=GoldenImage,OU=VDI,OU=Clients,DC=sav-kb,DC=de
 // ─────────────────────────────────────────────────────────────────────────────
 
-domain_join_enabled  = true
-domain_name          = "sav-kb.de"
-domain_join_username = "svc-packer@sav-kb.de"
-domain_join_password = "CHANGE_ME"
-domain_join_ou       = "OU=GoldenImage,OU=VDI,OU=Clients,DC=sav-kb,DC=de"
+domain_join_enabled       = true
+domain_name               = "sav-kb.de"
+domain_join_username      = "svc-packer@sav-kb.de"
+domain_join_password      = "CHANGE_ME"
+domain_join_ou            = "OU=GoldenImage,OU=VDI,OU=Clients,DC=sav-kb,DC=de"
+domain_join_computer_name = "VID-W11-BUILD"   // ← Leer lassen für Windows-generierten Namen
