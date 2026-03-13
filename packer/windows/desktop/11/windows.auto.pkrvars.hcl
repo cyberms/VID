@@ -102,9 +102,33 @@ scripts_layer5 = [
 // [VID Layer 6 – Drivers]  VMware Tools: Einbindung via iso_paths (sources.pkrvars.hcl)
 //                          Kein separates Skript nötig – autounattend.xml ruft windows-vmtools.ps1 auf
 // [VID Layer 7a – Broker]  Citrix VDA: windows-citrix-vda.ps1 (windows.pkr.hcl Step 7)
-// [VID Layer 7a+7b – Opt]  windows-citrix-optimize.ps1       (windows.pkr.hcl Step 10)
-// [VID Layer 7 – Finalize] windows-citrix-mcs-prep.ps1       (windows.pkr.hcl Step 11)
+// [VID Layer 7a+7b – Opt]  windows-citrix-optimize.ps1       (windows.pkr.hcl Step 11)
+// [VID Layer 7 – Finalize] windows-citrix-mcs-prep.ps1       (windows.pkr.hcl Step 12)
 // [VID Layer 8 – DEX]      windows-dex-agent.ps1             (später, noch deaktiviert)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Citrix VDA Installation Options
+// Defaults für MCS-Deployment mit Citrix DaaS (Cloud).
+// Alle Werte können in build.pkrvars.hcl oder per -var Flag überschrieben werden.
+// Vollständige Beschreibungen: variables.pkr.hcl (vid_vda_*)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Installer Flags
+vid_vda_mastermcs         = true   // /mastermcsimage  – MCS master image (kein DDC-Register beim Build)
+vid_vda_enable_edt        = true   // /enable_real_time_transport – Enlightened Data Transport (UDP)
+vid_vda_enable_hdx_ports  = true   // /enable_hdx_ports  – FW-Regeln für TCP/UDP 1494, 2598, 8008
+vid_vda_enable_ss_ports   = true   // /enable_ss_ports   – FW-Regeln für TCP 2513 (Session Sharing)
+vid_vda_disable_ceip      = true   // /disableexperiencemetrics – kein CEIP/Telemetry an Citrix
+
+// VDA Komponenten (/includeadditional / /exclude)
+vid_vda_include_mcs_io_driver    = true    // Citrix MCS IODriver        – Write-Cache für MCS Non-Persistent
+vid_vda_include_upm              = true    // Citrix User Profile Manager – UPM + WMI Plugin (disable for FSLogix-only)
+vid_vda_include_machine_identity = true    // Machine Identity Service   – MCS/PVS Identitätsverwaltung
+vid_vda_include_bcr              = true    // Browser Content Redirection – Browser-Rendering auf Endpoint
+vid_vda_include_rendezvous       = true    // Citrix Rendezvous V2       – Direkte HDX-Verbindung via Gateway
+vid_vda_include_telemetry        = false   // Citrix Telemetry Service   – Call Home (in Enterprise meist deaktiviert)
+vid_vda_include_upl              = false   // User Personalization Layer – nur bei App Layering
+vid_vda_include_support_tools    = false   // Citrix Supportability Tools – Diagnosetools (vergrößert Image)
 
 // Inline-Befehl: Event Logs leeren am Ende der OS-Baseline-Phase (vor VDA)
 inline = [

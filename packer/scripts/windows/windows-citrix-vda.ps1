@@ -23,10 +23,27 @@
         VID_PATH           = VID-Data
         VID_VDA_INSTALLER  = VDAWorkstationSetup.exe
 
+    VDA Installer Flags (all optional, defaults match production MCS deployment):
+      VID_VDA_MASTERMCS              = true   /mastermcsimage (MCS master image)
+      VID_VDA_ENABLE_EDT             = true   /enable_real_time_transport (EDT/UDP)
+      VID_VDA_ENABLE_HDX_PORTS       = true   /enable_hdx_ports (FW: TCP/UDP 1494, 2598, 8008)
+      VID_VDA_ENABLE_SS_PORTS        = true   /enable_ss_ports (FW: TCP 2513)
+      VID_VDA_DISABLE_CEIP           = true   /disableexperiencemetrics (no telemetry to Citrix)
+
+    VDA Components (/includeadditional / /exclude):
+      VID_VDA_INCLUDE_MCS_IO_DRIVER  = true   Citrix MCS IODriver (write-cache for MCS)
+      VID_VDA_INCLUDE_UPM            = true   Citrix User Profile Manager + WMI Plugin
+      VID_VDA_INCLUDE_MACHINE_IDENTITY = true  Machine Identity Service (MCS/PVS identity)
+      VID_VDA_INCLUDE_BCR            = true   Browser Content Redirection
+      VID_VDA_INCLUDE_RENDEZVOUS     = true   Citrix Rendezvous V2 (direct Gateway connections)
+      VID_VDA_INCLUDE_TELEMETRY      = false  Citrix Telemetry Service (Call Home)
+      VID_VDA_INCLUDE_UPL            = false  User Personalization Layer (App Layering only)
+      VID_VDA_INCLUDE_SUPPORT_TOOLS  = false  Citrix Supportability Tools (diagnostics)
+
     .NOTES
-    - Use /mastermcsimage for MCS-managed (non-persistent) desktops.
     - No controller registration at build time; done via Cloud Connector / GPO.
     - Exit codes: 0 = success, 8 = reboot required (treated as success here).
+    - Ref: https://docs.citrix.com/en-us/citrix-daas/install-configure/install-vdas/install-command.html
 #>
 
 $ErrorActionPreference = "Stop"
@@ -156,37 +173,82 @@ if (-not $VdaExe) {
 }
 
 # -----------------------------------------------------------------------------
-# 2. Define installation parameters
+# 2. Read feature flags from Packer environment variables
 # -----------------------------------------------------------------------------
 
-# Components to include (comma-separated, no spaces around commas in the string)
-# Ref: https://docs.citrix.com/en-us/citrix-virtual-apps-desktops/install-configure/install-command.html
-$IncludeComponents = @(
-    "Citrix User Profile Manager",
-    "Citrix User Profile Manager WMI Plugin",
-    "Machine Identity Service",
-    "Citrix Telemetry Service",
-    "Browser Content Redirection"
-) -join ","
+# Helper: reads a boolean env var. Returns $Default if the var is not set.
+function Get-EnvBool {
+    param([string]$Name, [bool]$Default)
+    $val = [System.Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrEmpty($val)) { return $Default }
+    return $val -eq "true" -or $val -eq "True" -or $val -eq "1"
+}
 
-# Components to exclude (not needed for MCS managed desktops)
-$ExcludeComponents = @(
-    "Citrix Supportability Tools",
-    "Personal vDisk"
-) -join ","
+# -- Installer flags --
+$optMasterMcs      = Get-EnvBool "VID_VDA_MASTERMCS"               $true
+$optEnableEdt      = Get-EnvBool "VID_VDA_ENABLE_EDT"               $true
+$optHdxPorts       = Get-EnvBool "VID_VDA_ENABLE_HDX_PORTS"         $true
+$optSsPorts        = Get-EnvBool "VID_VDA_ENABLE_SS_PORTS"          $true
+$optDisableCeip    = Get-EnvBool "VID_VDA_DISABLE_CEIP"             $true
 
-$VdaArguments = @(
-    "/quiet",                          # Silent install
-    "/noreboot",                       # Packer manages reboots
-    "/enable_hdx_ports",               # Open Citrix HDX firewall ports (1494, 2598)
-    "/enable_real_time_transport",     # Enable Enlightened Data Transport (UDP/EDT)
-    "/enable_ss_ports",               # Enable Session Sharing ports
-    "/virtualmachine",                 # Optimize for virtual machine deployment
-    "/mastermcsimage",                 # Mark as MCS master image (no VDA registration at build time)
-    "/includeadditional `"$IncludeComponents`"",
-    "/exclude `"$ExcludeComponents`"",
-    "/logpath C:\Windows\Temp\CitrixVDAInstall"
-)
+# -- Component flags --
+$optMcsIoDriver    = Get-EnvBool "VID_VDA_INCLUDE_MCS_IO_DRIVER"    $true
+$optUpm            = Get-EnvBool "VID_VDA_INCLUDE_UPM"              $true
+$optMachineId      = Get-EnvBool "VID_VDA_INCLUDE_MACHINE_IDENTITY" $true
+$optBcr            = Get-EnvBool "VID_VDA_INCLUDE_BCR"              $true
+$optRendezvous     = Get-EnvBool "VID_VDA_INCLUDE_RENDEZVOUS"       $true
+$optTelemetry      = Get-EnvBool "VID_VDA_INCLUDE_TELEMETRY"        $false
+$optUpl            = Get-EnvBool "VID_VDA_INCLUDE_UPL"              $false
+$optSupportTools   = Get-EnvBool "VID_VDA_INCLUDE_SUPPORT_TOOLS"    $false
+
+Write-Log "--- VDA Feature Flags ---"
+Write-Log "  Flags    : mastermcs=$optMasterMcs  edt=$optEnableEdt  hdx_ports=$optHdxPorts  ss_ports=$optSsPorts  disable_ceip=$optDisableCeip"
+Write-Log "  Components: mcs_io=$optMcsIoDriver  upm=$optUpm  machine_id=$optMachineId  bcr=$optBcr  rendezvous=$optRendezvous  telemetry=$optTelemetry  upl=$optUpl  support_tools=$optSupportTools"
+
+# -----------------------------------------------------------------------------
+# 3. Define installation parameters
+# -----------------------------------------------------------------------------
+
+# Build /includeadditional list
+$IncludeList = [System.Collections.Generic.List[string]]::new()
+if ($optMachineId)    { $IncludeList.Add("Machine Identity Service") }
+if ($optUpm)          { $IncludeList.Add("Citrix User Profile Manager")
+                        $IncludeList.Add("Citrix User Profile Manager WMI Plugin") }
+if ($optBcr)          { $IncludeList.Add("Browser Content Redirection") }
+if ($optRendezvous)   { $IncludeList.Add("Citrix Rendezvous V2") }
+if ($optMcsIoDriver)  { $IncludeList.Add("Citrix MCS IODriver") }
+if ($optTelemetry)    { $IncludeList.Add("Citrix Telemetry Service") }
+if ($optUpl)          { $IncludeList.Add("User Personalization Layer") }
+if ($optSupportTools) { $IncludeList.Add("Citrix Supportability Tools") }
+
+# Build /exclude list (always exclude legacy Personal vDisk; optionally others)
+$ExcludeList = [System.Collections.Generic.List[string]]::new()
+$ExcludeList.Add("Personal vDisk")
+if (-not $optSupportTools) { $ExcludeList.Add("Citrix Supportability Tools") }
+if (-not $optTelemetry)    { $ExcludeList.Add("Citrix Telemetry Service") }
+
+Write-Log "  /includeadditional : $($IncludeList -join ', ')"
+Write-Log "  /exclude           : $($ExcludeList -join ', ')"
+
+# Build the argument list
+$VdaArguments = [System.Collections.Generic.List[string]]::new()
+$VdaArguments.Add("/quiet")           # Silent install
+$VdaArguments.Add("/noreboot")        # Packer manages reboots
+$VdaArguments.Add("/virtualmachine")  # Optimize for virtual machine deployment
+
+if ($optMasterMcs)   { $VdaArguments.Add("/mastermcsimage") }
+if ($optEnableEdt)   { $VdaArguments.Add("/enable_real_time_transport") }
+if ($optHdxPorts)    { $VdaArguments.Add("/enable_hdx_ports") }
+if ($optSsPorts)     { $VdaArguments.Add("/enable_ss_ports") }
+if ($optDisableCeip) { $VdaArguments.Add("/disableexperiencemetrics") }
+
+if ($IncludeList.Count -gt 0) {
+    $VdaArguments.Add("/includeadditional `"$($IncludeList -join ',')`"")
+}
+if ($ExcludeList.Count -gt 0) {
+    $VdaArguments.Add("/exclude `"$($ExcludeList -join ',')`"")
+}
+$VdaArguments.Add("/logpath C:\Windows\Temp\CitrixVDAInstall")
 
 $ArgumentString = $VdaArguments -join " "
 Write-Log "VDA installer: $VdaExe"

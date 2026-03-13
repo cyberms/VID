@@ -300,6 +300,21 @@ build {
         // "VSPHERE_DATACENTER=${var.vsphere_datacenter}",
         // "VID_DATASTORE=datastore2",
         // "VID_PATH=VID-Data",
+        // -- VDA Installer Flags (see variables.pkr.hcl for descriptions) ----
+        "VID_VDA_MASTERMCS=${var.vid_vda_mastermcs}",
+        "VID_VDA_ENABLE_EDT=${var.vid_vda_enable_edt}",
+        "VID_VDA_ENABLE_HDX_PORTS=${var.vid_vda_enable_hdx_ports}",
+        "VID_VDA_ENABLE_SS_PORTS=${var.vid_vda_enable_ss_ports}",
+        "VID_VDA_DISABLE_CEIP=${var.vid_vda_disable_ceip}",
+        // -- VDA Components ---------------------------------------------------
+        "VID_VDA_INCLUDE_MCS_IO_DRIVER=${var.vid_vda_include_mcs_io_driver}",
+        "VID_VDA_INCLUDE_UPM=${var.vid_vda_include_upm}",
+        "VID_VDA_INCLUDE_MACHINE_IDENTITY=${var.vid_vda_include_machine_identity}",
+        "VID_VDA_INCLUDE_BCR=${var.vid_vda_include_bcr}",
+        "VID_VDA_INCLUDE_RENDEZVOUS=${var.vid_vda_include_rendezvous}",
+        "VID_VDA_INCLUDE_TELEMETRY=${var.vid_vda_include_telemetry}",
+        "VID_VDA_INCLUDE_UPL=${var.vid_vda_include_upl}",
+        "VID_VDA_INCLUDE_SUPPORT_TOOLS=${var.vid_vda_include_support_tools}",
       ]
       scripts           = ["${path.cwd}/scripts/windows/windows-citrix-vda.ps1"]
     }
