@@ -152,8 +152,8 @@ domain_join_computer_name = "VID-W11-BUILD"   # leer = Windows-generierter Name
 Die VM-Größe für den Build-Prozess wird in `packer/windows/desktop/11/windows.auto.pkrvars.hcl` definiert:
 
 ```hcl
-vm_cpu_count  = 2       # vCPU Sockets
-vm_cpu_cores  = 1       # Kerne pro Socket → gesamt 2 vCPU
+vm_cpu_count  = 4       # Gesamt-vCPUs
+vm_cpu_cores  = 4       # Cores pro Socket → 1 Socket × 4 Cores = 4 vCPUs
 vm_mem_size   = 4096    # RAM in MB → 4 GB
 vm_disk_size  = 102400  # Disk in MB → 100 GB
 ```
