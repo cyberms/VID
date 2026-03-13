@@ -89,7 +89,7 @@ function Install-AppViaWinget {
     $result = & winget install --id $id --silent --accept-package-agreements --accept-source-agreements 2>&1
     $exitCode = $LASTEXITCODE
     Write-Log "  [Winget] Exit code: $exitCode"
-    return $exitCode -in @(0, -1978335189) # 0=success, -1978335189=already installed
+    return $exitCode -in @(0, -1978335189, -1978335157) # 0=success, -1978335189=already installed, -1978335157=no applicable update (0x8A15004B)
 }
 
 function Install-AppViaChocolatey {
@@ -101,7 +101,7 @@ function Install-AppViaChocolatey {
     $result = & choco install $id -y --no-progress 2>&1
     $exitCode = $LASTEXITCODE
     Write-Log "  [Choco] Exit code: $exitCode. Output: $(($result | Select-Object -Last 3) -join '; ')"
-    return $exitCode -eq 0
+    return $exitCode -in @(0, 3010) # 0=success, 3010=success+reboot required
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -182,3 +182,7 @@ Write-Log "=== VID Layer 7: Application Installation Summary ==="
 Write-Log "  Installed: $totalInstalled"
 Write-Log "  Failed:    $totalFailed"
 Write-Log "  Log: $LogFile"
+
+# Explicit exit: prevents $LASTEXITCODE from the last external process (winget/choco)
+# leaking as the script exit code when PowerShell has no explicit exit statement.
+exit $(if ($totalFailed -gt 0) { 1 } else { 0 })
