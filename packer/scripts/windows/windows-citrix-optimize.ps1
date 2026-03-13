@@ -79,9 +79,9 @@ function Disable-ScheduledTaskSafely {
 Write-Log "=== Citrix VDI Optimization Start ==="
 Write-Log "OS: $([System.Environment]::OSVersion.VersionString)"
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 1. Power Plan: High Performance (mandatory for VDI)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [1] Power Plan ---"
 $highPerfGuid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
@@ -95,20 +95,35 @@ Write-Log "  Power plan set to High Performance, all timeouts disabled."
 # Disable Fast Startup (causes issues with VMs and domain rejoining)
 Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" "HiberbootEnabled" 0
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 2. Virtual Memory / Page File (MCS manages this per-VM)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [2] Page File ---"
 # Set automatic page file management (MCS will inherit this setting)
-$cs = Get-WmiObject -Class Win32_ComputerSystem
-$cs.AutomaticManagedPagefile = $true
-$cs.Put() | Out-Null
-Write-Log "  Page file set to system-managed (automatic)."
+# WMI Put() can fail with "Generic failure" if SeCreatePagefilePrivilege is not active
+# (common in Packer/WinRM context). Fall back to direct registry key in that case.
+try {
+    $cs = Get-WmiObject -Class Win32_ComputerSystem
+    $cs.AutomaticManagedPagefile = $true
+    $cs.Put() | Out-Null
+    Write-Log "  Page file set to system-managed (WMI)."
+}
+catch {
+    Write-Log "  WMI Put() failed: $($_.Exception.Message) - using registry fallback." "WARN"
+    # AutomaticManagedPageFile = 1 enables automatic management; clears fixed-size entries
+    Set-ItemProperty `
+        -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+        -Name "AutomaticManagedPageFile" -Value 1 -Type DWord -Force
+    Set-ItemProperty `
+        -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+        -Name "PagingFiles" -Value @() -Type MultiString -Force
+    Write-Log "  Page file set to system-managed (registry fallback)."
+}
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 3. Disable Unnecessary Windows Services
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [3] Services ---"
 
@@ -145,9 +160,9 @@ Disable-ServiceSafely "XboxNetApiSvc"      "Xbox Live Networking Service"
 Disable-ServiceSafely "SpatialDataService" "Spatial Data Service"
 Disable-ServiceSafely "spectrum"           "Windows Perception Service"
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 4. Disable Unnecessary Scheduled Tasks
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [4] Scheduled Tasks ---"
 
@@ -173,9 +188,9 @@ Disable-ScheduledTaskSafely "\Microsoft\Windows\WindowsUpdate\"         "sih"
 Disable-ScheduledTaskSafely "\Microsoft\Windows\WindowsUpdate\"         "sihboot"
 Disable-ScheduledTaskSafely "\Microsoft\XblGameSave\"                   "XblGameSaveTask"
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 5. Windows Update Policy (new images replace updates in MCS)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [5] Windows Update (disable auto-update in VDI) ---"
 $wuPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
@@ -186,9 +201,9 @@ Set-RegistryValue $wuPath "UseWUServer"            0
 # Disable Windows Update delivery optimization (peer-to-peer bandwidth waste)
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" "DODownloadMode" 0
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 6. Telemetry, Privacy, and Consumer Features
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [6] Telemetry & Privacy ---"
 
@@ -219,9 +234,9 @@ Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" "UploadUser
 Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Control\Remote Assistance" "fAllowToGetHelp" 0
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" "fAllowToGetHelp" 0
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 7. OneDrive (disable sync in VDI)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [7] OneDrive ---"
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive" "DisableFileSyncNGSC" 1
@@ -235,9 +250,9 @@ if (Test-Path $oneDriveExe) {
     Write-Log "  OneDrive uninstalled."
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 8. Network Optimizations
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [8] Network Optimizations ---"
 
@@ -254,22 +269,22 @@ Get-NetAdapter -Physical | ForEach-Object {
     catch { Write-Log "  Could not configure power management for $($adapter.Name)" "WARN" }
 }
 
-# Disable Large Send Offload (LSO) – can cause issues with Citrix HDX
+# Disable Large Send Offload (LSO) - can cause issues with Citrix HDX
 Get-NetAdapter -Physical | ForEach-Object {
     Disable-NetAdapterLso -Name $_.Name -ErrorAction SilentlyContinue
     Write-Log "  Disabled LSO on: $($_.Name)"
 }
 
-# Optimize TCP for LAN (not WAN) – Citrix HDX handles WAN optimization
+# Optimize TCP for LAN (not WAN) - Citrix HDX handles WAN optimization
 Set-NetTCPSetting -SettingName InternetCustom -AutoTuningLevelLocal Normal -ErrorAction SilentlyContinue
 
 # DNS Client settings
 Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters" "MaxCacheTtl" 300
 Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters" "NegativeCacheTime" 30
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 9. Storage / Filesystem Optimizations
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [9] Storage / Filesystem ---"
 
@@ -285,9 +300,9 @@ Write-Log "  Disabled last access timestamp."
 Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" "EnablePrefetcher" 0
 Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" "EnableBootTrace" 0
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 10. Windows Security / Defender (balance security and VDI performance)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [10] Windows Defender / Security ---"
 
@@ -311,9 +326,9 @@ Write-Log "  Disabled Defender scanning of network files."
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" "EnableSmartScreen" 0
 Set-RegistryValue "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" "SmartScreenEnabled" "Off" -Type "String"
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 11. Citrix-Specific Registry Optimizations
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [11] Citrix-Specific Registry Tweaks ---"
 
@@ -332,9 +347,9 @@ Set-RegistryValue "HKLM:\SOFTWARE\Policies\Citrix\ICA Client\Engine\Lockdown Pro
 # Desktop composition for smooth user experience
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DWM" "DisallowFlip3d" 0
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 12. Visual / UI Optimizations (VDI performance without sacrificing usability)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [12] Visual / UI Optimizations ---"
 
@@ -354,9 +369,9 @@ Set-RegistryValue "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Person
 # Disable background apps
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy" "LetAppsRunInBackground" 2  # Force deny
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 13. Remove Windows AppX Bloatware (per-user provisioned apps not needed in VDI)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [13] AppX Bloatware Removal ---"
 
@@ -407,9 +422,9 @@ foreach ($app in $appsToRemove) {
     Get-AppxPackage -AllUsers -Name "*$app*" | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 14. Event Log Sizing (for VDI environments, increase log sizes)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [14] Event Log Sizes ---"
 $logConfigs = @{
@@ -422,24 +437,24 @@ foreach ($log in $logConfigs.GetEnumerator()) {
     Write-Log "  Set $($log.Key) log max size to $([math]::Round($log.Value/1MB))MB"
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 15. Windows Error Reporting
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [15] Windows Error Reporting ---"
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting" "Disabled" 1
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 16. Locale / Regional Settings (German keyboard, EU time, English interface)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [16] Regional Settings ---"
 Set-TimeZone -Id "W. Europe Standard Time" -ErrorAction SilentlyContinue
 Write-Log "  Timezone set to W. Europe Standard Time (CET/CEST)"
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 17. Terminal Services / RDP Tuning for Citrix coexistence
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [17] RDP/Terminal Services ---"
 # Limit RDP sessions (Citrix manages session brokering, not Windows RDP)
@@ -448,9 +463,9 @@ Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Service
 # Keep color depth at 32-bit for Citrix HDX (not 16-bit)
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" "ColorDepth" 4  # 4 = 32-bit
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 18. Startup Programs / Shell
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "--- [18] Startup Cleanup ---"
 

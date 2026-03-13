@@ -4,7 +4,7 @@
     Machine Creation Services (MCS). Designed for unattended Packer builds on vSphere.
 
     VID-Data Source (configure via Packer environment variables):
-      Option A – SMB Share (primary / hypervisor-agnostic):
+      Option A - SMB Share (primary / hypervisor-agnostic):
         VID_SMB_SERVER    = fileserver.domain.local
         VID_SMB_SHARE     = VID-Data
         VID_SMB_USERNAME  = DOMAIN\svc-packer
@@ -14,7 +14,7 @@
         VDA installer path on share:
           \\<VID_SMB_SERVER>\<VID_SMB_SHARE>\citrix\vda\<VID_VDA_INSTALLER>
 
-      Option B – vSphere Datastore (fallback / vSphere-only):
+      Option B - vSphere Datastore (fallback / vSphere-only):
         VCENTER_URL        = https://vcenter.domain.local
         VCENTER_USERNAME   = administrator@vsphere.local
         VCENTER_PASSWORD   = <password>
@@ -44,32 +44,32 @@ Write-Log "=== Citrix VDA Installation Start ==="
 Write-Log "PowerShell version: $($PSVersionTable.PSVersion)"
 Write-Log "OS: $([System.Environment]::OSVersion.VersionString)"
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 1. Locate / download the VDA installer
-#    Priority: Option A (SMB) → Option B (vCenter Datastore) → CD-ROM fallback
+#    Priority: Option A (SMB) -> Option B (vCenter Datastore) -> CD-ROM fallback
 #
 #    SMB folder structure (standardised for all customers):
 #      \\<VID_SMB_SERVER>\VID-Data\
-#        citrix\vda\          ← VDA installer  ← we look here
-#        citrix\optimize\     ← optional custom optimize scripts
-#        microsoft\avd\       ← AVD Agent (Phase 3)
-#        microsoft\fslogix\   ← FSLogix (Phase 2+)
-#        dex\controlup\       ← ControlUp (Layer 8, later)
-#        dex\uberagent\       ← uberagent (Layer 8, later)
+#        citrix\vda\          <- VDA installer  <- we look here
+#        citrix\optimize\     <- optional custom optimize scripts
+#        microsoft\avd\       <- AVD Agent (Phase 3)
+#        microsoft\fslogix\   <- FSLogix (Phase 2+)
+#        dex\controlup\       <- ControlUp (Layer 8, later)
+#        dex\uberagent\       <- uberagent (Layer 8, later)
 #        drivers\vmware\
 #        drivers\xenserver\
 #        apps\
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 $VdaExe       = $null
 $VdaFileName  = if ($env:VID_VDA_INSTALLER) { $env:VID_VDA_INSTALLER } else { "VDAWorkstationSetup_2511.exe" }
 $LocalInstall = "C:\Windows\Temp\$VdaFileName"
 
-# ── Option A: SMB Share (primary / hypervisor-agnostic) ──────────────────────
+# -- Option A: SMB Share (primary / hypervisor-agnostic) ----------------------
 # Requires: VID_SMB_SERVER, VID_SMB_SHARE, VID_SMB_USERNAME, VID_SMB_PASSWORD
-# The VM does NOT need to be domain-joined – credentials are passed explicitly.
+# The VM does NOT need to be domain-joined - credentials are passed explicitly.
 if ($env:VID_SMB_SERVER -and $env:VID_SMB_SHARE) {
-    Write-Log "VID-Data Source: SMB Share (Option A – primary)"
+    Write-Log "VID-Data Source: SMB Share (Option A - primary)"
     $uncShare  = "\\$($env:VID_SMB_SERVER)\$($env:VID_SMB_SHARE)"
     $vdaSource = "$uncShare\citrix\vda\$VdaFileName"
     Write-Log "SMB share  : $uncShare"
@@ -98,11 +98,11 @@ if ($env:VID_SMB_SERVER -and $env:VID_SMB_SHARE) {
     }
 }
 
-# ── Option B: vCenter Datastore Browser (fallback / vSphere-only) ────────────
+# -- Option B: vCenter Datastore Browser (fallback / vSphere-only) ------------
 # Requires: VCENTER_URL, VCENTER_USERNAME, VCENTER_PASSWORD,
 #           VSPHERE_DATACENTER, VID_DATASTORE, VID_PATH
 if (-not $VdaExe -and $env:VCENTER_URL -and $env:VID_DATASTORE -and $env:VID_PATH) {
-    Write-Log "VID-Data Source: vCenter Datastore Browser (Option B – fallback)"
+    Write-Log "VID-Data Source: vCenter Datastore Browser (Option B - fallback)"
     $downloadUrl = "$($env:VCENTER_URL)/folder/$($env:VID_PATH)/$VdaFileName" +
                    "?dcPath=$($env:VSPHERE_DATACENTER)&dsName=$($env:VID_DATASTORE)"
     Write-Log "Download URL: $downloadUrl"
@@ -133,7 +133,7 @@ if (-not $VdaExe -and $env:VCENTER_URL -and $env:VID_DATASTORE -and $env:VID_PAT
     }
 }
 
-# ── Fallback: CD-ROM detection (legacy / manual builds without env vars) ──────
+# -- Fallback: CD-ROM detection (legacy / manual builds without env vars) ------
 if (-not $VdaExe) {
     Write-Log "VID-Data Source: CD-ROM fallback (no SMB / Datastore env vars set)"
     $drives = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'CDRom' -and $_.IsReady }
@@ -155,9 +155,9 @@ if (-not $VdaExe) {
           "Set VID_SMB_SERVER + VID_SMB_SHARE env vars, or VCENTER_URL + VID_DATASTORE, or mount the Citrix ISO."
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 2. Define installation parameters
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 # Components to include (comma-separated, no spaces around commas in the string)
 # Ref: https://docs.citrix.com/en-us/citrix-virtual-apps-desktops/install-configure/install-command.html
@@ -192,9 +192,9 @@ $ArgumentString = $VdaArguments -join " "
 Write-Log "VDA installer: $VdaExe"
 Write-Log "Arguments: $ArgumentString"
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 3. Run the VDA installation
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "Starting Citrix VDA installation... (this may take 10-20 minutes)"
 
@@ -230,9 +230,9 @@ catch {
     throw
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 4. Verify key VDA files are present
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "Verifying VDA installation..."
 
@@ -248,17 +248,17 @@ if (Test-Path $vdaPath) {
         Write-Log "WARNING: BrokerAgent.exe not found at expected location." "WARN"
     }
 } else {
-    Write-Log "WARNING: VDA directory not found at $vdaPath – install may be incomplete." "WARN"
+    Write-Log "WARNING: VDA directory not found at $vdaPath - install may be incomplete." "WARN"
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 5. Configure VDA for Citrix DaaS (Cloud)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "Configuring VDA registry settings for Citrix DaaS..."
 
 # ListOfDDCs / Controllers can be overridden later via GPO or Citrix Policy
-# For DaaS/Cloud, the Cloud Connector is the DDC – set via GPO or ADMX
+# For DaaS/Cloud, the Cloud Connector is the DDC - set via GPO or ADMX
 # The following keys ensure the VDA is cloud-ready
 $regPath = "HKLM:\SOFTWARE\Citrix\VirtualDesktopAgent"
 
@@ -268,12 +268,12 @@ if (Test-Path $regPath) {
     Set-ItemProperty -Path $regPath -Name "EnableAutoUpdateFeature" -Value 1 -Type DWord -ErrorAction SilentlyContinue
     Write-Log "VDA registry configured."
 } else {
-    Write-Log "VDA registry path not found – will be created on first boot." "WARN"
+    Write-Log "VDA registry path not found - will be created on first boot." "WARN"
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 6. Configure Citrix HDX firewall rules (in case /enable_hdx_ports missed any)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 Write-Log "Verifying Citrix HDX firewall rules..."
 
