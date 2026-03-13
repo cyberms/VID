@@ -14,13 +14,15 @@
       3. WinRM initialization (windows-init.ps1)                  [Layer 5]
       4. Windows OS baseline hardening (windows-prepare.ps1)      [Layer 5]
       5. Windows Updates – pre-VDA                                [Layer 5]
-      6. Reboot                                                   [Layer 5]
+      6a. Domain Join (windows-domain-join.ps1) – optional        [Layer 5→7]
+      6b. Reboot after Domain Join                                [Layer 5→7]
       7. Citrix VDA silent installation (windows-citrix-vda.ps1)  [Layer 7a – Broker Agent]
       8. Reboot to complete VDA installation                      [Layer 7a]
       9. Post-VDA Windows Updates                                 [Layer 7a]
-     10. VDI optimizations (windows-citrix-optimize.ps1)          [Layer 7a+7b]
-     11. MCS master image cleanup (windows-citrix-mcs-prep.ps1)   [Layer 7]
-     12. Template / Content Library export for Citrix MCS
+     10. Application installation (windows-apps-install.ps1)      [Layer 7c]
+     11. VDI optimizations (windows-citrix-optimize.ps1)          [Layer 7a+7b]
+     12. MCS master image cleanup (windows-citrix-mcs-prep.ps1)   [Layer 7]
+     13. Template / Content Library export for Citrix MCS
 
     MCS Note: Sysprep is NOT required. MCS handles machine identity (SID,
     hostname, domain join) automatically during provisioning.
@@ -239,7 +241,8 @@ build {
   // ── LAYER 5→7 TRANSITION: Active Directory Domain Join ───────────────────────
 
   // Step 6a [VID Layer 5→7]: Domain Join (optional, nur wenn domain_join_enabled = true)
-  // Erfolgt NACH Windows Updates und VOR der Citrix VDA Installation.
+  // Erfolgt NACH Windows Updates und VOR der Citrix VDA Installation, damit der
+  // VDA sich beim Delivery Controller mit dem korrekten Domänen-FQDN registriert.
   // Credentials werden aus build.pkrvars.hcl gelesen (nicht im Repo).
   // OU-Pfad Beispiel: OU=GoldenImage,OU=VDI,OU=Clients,DC=sav-kb,DC=de
   dynamic "provisioner" {
@@ -269,45 +272,11 @@ build {
     }
   }
 
-  // ── LAYER 7 STEPS (übersprungen wenn build_layer5_only = true) ──────────────
-
-  // Step 7a [VID Layer 7c – Apps]: apps-manifest.json auf VM hochladen
-  // Muss vor windows-apps-install.ps1 laufen, da das Script die Datei erwartet.
-  dynamic "provisioner" {
-    for_each = var.build_layer5_only ? [] : [1]
-    labels   = ["file"]
-    content {
-      source      = "${path.cwd}/scripts/windows/apps-manifest.json"
-      destination = "C:/Windows/Temp/apps-manifest.json"
-    }
-  }
-
-  // Step 7b [VID Layer 7c – Apps]: Applikationsinstallation
-  // Wird in w11-full UND w11-vda ausgeführt – unabhängig von Citrix.
-  // Apps werden aus apps-manifest.json gelesen (SMB oder lokaler Pfad).
-  dynamic "provisioner" {
-    for_each = var.build_layer5_only ? [] : [1]
-    labels   = ["powershell"]
-    content {
-      elevated_user     = var.build_username
-      elevated_password = var.build_password
-      environment_vars  = [
-        "VID_SMB_SERVER=${var.vid_smb_server}",
-        "VID_SMB_SHARE=${var.vid_smb_share}",
-        "VID_SMB_USERNAME=${var.vid_smb_username}",
-        "VID_SMB_PASSWORD=${var.vid_smb_password}",
-      ]
-      scripts = ["${path.cwd}/scripts/windows/windows-apps-install.ps1"]
-    }
-  }
-
-  // Step 7b [VID Layer 8 – DEX/Monitoring]: DEAKTIVIERT – kommt am Ende des Projekts
-  // Skript vorhanden: scripts/windows/windows-dex-agent.ps1
-  // Provisioner hier einkommentieren wenn DEX-Phase startet.
-
   // ── CITRIX STEPS (nur wenn build_include_citrix = true) ─────────────────────
+  // VDA wird bewusst VOR den Apps installiert, damit der VDA bereits domain-joined
+  // ist wenn er sich beim Delivery Controller registriert. Apps folgen danach.
 
-  // Step 8 [VID Layer 7a – Broker Agent]: Citrix VDA Installation
+  // Step 7 [VID Layer 7a – Broker Agent]: Citrix VDA Installation
   // The VDA installer is pulled from the VID-Data SMB share at build time:
   //   \\<vid_smb_server>\VID-Data\citrix\vda\<vid_vda_installer>
   // SWAP THIS STEP to replace Citrix with AVD Agent, Horizon Agent, etc.
@@ -336,7 +305,7 @@ build {
     }
   }
 
-  // Step 9 [VID Layer 7a]: Reboot to complete VDA installation
+  // Step 8 [VID Layer 7a]: Reboot to complete VDA installation
   dynamic "provisioner" {
     for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["windows-restart"]
@@ -346,7 +315,7 @@ build {
     }
   }
 
-  // Step 10 [VID Layer 7a]: Post-VDA Windows Updates
+  // Step 9 [VID Layer 7a]: Post-VDA Windows Updates
   dynamic "provisioner" {
     for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["windows-update"]
@@ -363,6 +332,42 @@ build {
       restart_timeout = "120m"
     }
   }
+
+  // ── LAYER 7 STEPS (übersprungen wenn build_layer5_only = true) ──────────────
+
+  // Step 10a [VID Layer 7c – Apps]: apps-manifest.json auf VM hochladen
+  // Muss vor windows-apps-install.ps1 laufen, da das Script die Datei erwartet.
+  dynamic "provisioner" {
+    for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["file"]
+    content {
+      source      = "${path.cwd}/scripts/windows/apps-manifest.json"
+      destination = "C:/Windows/Temp/apps-manifest.json"
+    }
+  }
+
+  // Step 10b [VID Layer 7c – Apps]: Applikationsinstallation
+  // Wird in w11-full UND w11-vda ausgeführt – unabhängig von Citrix.
+  // Apps werden aus apps-manifest.json gelesen (SMB oder lokaler Pfad).
+  dynamic "provisioner" {
+    for_each = var.build_layer5_only ? [] : [1]
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      environment_vars  = [
+        "VID_SMB_SERVER=${var.vid_smb_server}",
+        "VID_SMB_SHARE=${var.vid_smb_share}",
+        "VID_SMB_USERNAME=${var.vid_smb_username}",
+        "VID_SMB_PASSWORD=${var.vid_smb_password}",
+      ]
+      scripts = ["${path.cwd}/scripts/windows/windows-apps-install.ps1"]
+    }
+  }
+
+  // Step 10c [VID Layer 8 – DEX/Monitoring]: DEAKTIVIERT – kommt am Ende des Projekts
+  // Skript vorhanden: scripts/windows/windows-dex-agent.ps1
+  // Provisioner hier einkommentieren wenn DEX-Phase startet.
 
   // Step 11 [VID Layer 7a+7b – Broker + Profile]: VDI Optimizations (Citrix)
   dynamic "provisioner" {
