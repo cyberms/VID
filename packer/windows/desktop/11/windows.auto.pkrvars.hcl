@@ -58,8 +58,8 @@ vm_guest_os_type = "windows9_64Guest"
 
 vm_firmware              = "efi-secure"   // Pflicht für Windows 11
 vm_cdrom_type            = "sata"
-vm_cpu_count             = 1   // Sockets (1 Socket = empfohlen für Windows)
-vm_cpu_cores             = 4   // Cores pro Socket → gesamt 4 vCPUs
+vm_cpu_count             = 4   // Gesamt-vCPUs
+vm_cpu_cores             = 4   // Cores pro Socket → 1 Socket × 4 Cores = 4 vCPUs
 vm_cpu_hot_add           = false
 vm_mem_size              = 4096
 vm_mem_hot_add           = false
