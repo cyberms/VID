@@ -114,21 +114,22 @@ scripts_layer5 = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Installer Flags
-vid_vda_mastermcs         = true   // /mastermcsimage  – MCS master image (kein DDC-Register beim Build)
-vid_vda_enable_edt        = true   // /enable_real_time_transport – Enlightened Data Transport (UDP)
-vid_vda_enable_hdx_ports  = true   // /enable_hdx_ports  – FW-Regeln für TCP/UDP 1494, 2598, 8008
-vid_vda_enable_ss_ports   = true   // /enable_ss_ports   – FW-Regeln für TCP 2513 (Session Sharing)
-vid_vda_disable_ceip      = true   // /disableexperiencemetrics – kein CEIP/Telemetry an Citrix
+vid_vda_mastermcs            = true   // /mastermcsimage       – MCS master image (kein DDC-Register beim Build)
+vid_vda_xendesktop_cloud     = true   // /xendesktopcloud      – Citrix DaaS / Cloud deployment
+vid_vda_enable_hdx_ports     = true   // /enable_hdx_ports     – FW: TCP 1494, 2598, 8008
+vid_vda_enable_hdx_udp_ports = true   // /enable_hdx_udp_ports – FW: UDP 1494, 2598 (EDT/adaptive transport)
+vid_vda_enable_edt           = true   // /enable_real_time_transport – RealTime Audio Transport (UDP)
+vid_vda_enable_ss_ports      = true   // /enable_ss_ports      – FW: Screen Sharing / Shadowing
+vid_vda_disable_ceip         = true   // /disableexperiencemetrics – kein Analytics-Upload an Citrix
 
-// VDA Komponenten (/includeadditional / /exclude)
-vid_vda_include_mcs_io_driver    = true    // Citrix MCS IODriver        – Write-Cache für MCS Non-Persistent
-vid_vda_include_upm              = true    // Citrix User Profile Manager – UPM + WMI Plugin (disable for FSLogix-only)
-vid_vda_include_machine_identity = true    // Machine Identity Service   – MCS/PVS Identitätsverwaltung
-vid_vda_include_bcr              = true    // Browser Content Redirection – Browser-Rendering auf Endpoint
-vid_vda_include_rendezvous       = true    // Citrix Rendezvous V2       – Direkte HDX-Verbindung via Gateway
-vid_vda_include_telemetry        = false   // Citrix Telemetry Service   – Call Home (in Enterprise meist deaktiviert)
-vid_vda_include_upl              = false   // User Personalization Layer – nur bei App Layering
-vid_vda_include_support_tools    = false   // Citrix Supportability Tools – Diagnosetools (vergrößert Image)
+// VDA Komponenten (/includeadditional wenn true, /exclude wenn false)
+// Komponentennamen sind CASE-SENSITIVE laut Citrix Doku.
+vid_vda_include_machine_identity = true    // Machine Identity Service             – Pflicht für MCS/PVS
+vid_vda_include_upm              = true    // Citrix Profile Management + WMI Plug-in – auch bei FSLogix empfohlen
+vid_vda_include_mcs_io_driver    = true    // Citrix MCS IODriver                  – Write-Cache für MCS Non-Persistent
+vid_vda_include_rendezvous       = true    // Citrix Rendezvous V2                 – Direkte HDX-Verbindung via Gateway
+vid_vda_include_upgrade_agent    = false   // Citrix VDA Upgrade Agent             – Cloud-seitige VDA-Upgrades (bei MCS: Image-Rebuild bevorzugt)
+vid_vda_include_upl              = false   // User personalization layer           – nur bei Citrix App Layering
 
 // Inline-Befehl: Event Logs leeren am Ende der OS-Baseline-Phase (vor VDA)
 inline = [

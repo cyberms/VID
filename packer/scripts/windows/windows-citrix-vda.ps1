@@ -23,22 +23,23 @@
         VID_PATH           = VID-Data
         VID_VDA_INSTALLER  = VDAWorkstationSetup.exe
 
-    VDA Installer Flags (all optional, defaults match production MCS deployment):
-      VID_VDA_MASTERMCS              = true   /mastermcsimage (MCS master image)
-      VID_VDA_ENABLE_EDT             = true   /enable_real_time_transport (EDT/UDP)
-      VID_VDA_ENABLE_HDX_PORTS       = true   /enable_hdx_ports (FW: TCP/UDP 1494, 2598, 8008)
-      VID_VDA_ENABLE_SS_PORTS        = true   /enable_ss_ports (FW: TCP 2513)
-      VID_VDA_DISABLE_CEIP           = true   /disableexperiencemetrics (no telemetry to Citrix)
+    VDA Installer Flags (all optional, defaults match production MCS/DaaS deployment):
+      VID_VDA_MASTERMCS              = true   /mastermcsimage  (MCS master image)
+      VID_VDA_XENDESKTOP_CLOUD       = true   /xendesktopcloud (Citrix DaaS / Cloud deployment)
+      VID_VDA_ENABLE_HDX_PORTS       = true   /enable_hdx_ports      (FW: TCP 1494, 2598, 8008)
+      VID_VDA_ENABLE_HDX_UDP_PORTS   = true   /enable_hdx_udp_ports  (FW: UDP 1494, 2598 for EDT)
+      VID_VDA_ENABLE_EDT             = true   /enable_real_time_transport  (RealTime Audio/EDT)
+      VID_VDA_ENABLE_SS_PORTS        = true   /enable_ss_ports       (FW: screen sharing)
+      VID_VDA_DISABLE_CEIP           = true   /disableexperiencemetrics  (no analytics to Citrix)
 
-    VDA Components (/includeadditional / /exclude):
-      VID_VDA_INCLUDE_MCS_IO_DRIVER  = true   Citrix MCS IODriver (write-cache for MCS)
-      VID_VDA_INCLUDE_UPM            = true   Citrix User Profile Manager + WMI Plugin
-      VID_VDA_INCLUDE_MACHINE_IDENTITY = true  Machine Identity Service (MCS/PVS identity)
-      VID_VDA_INCLUDE_BCR            = true   Browser Content Redirection
-      VID_VDA_INCLUDE_RENDEZVOUS     = true   Citrix Rendezvous V2 (direct Gateway connections)
-      VID_VDA_INCLUDE_TELEMETRY      = false  Citrix Telemetry Service (Call Home)
-      VID_VDA_INCLUDE_UPL            = false  User Personalization Layer (App Layering only)
-      VID_VDA_INCLUDE_SUPPORT_TOOLS  = false  Citrix Supportability Tools (diagnostics)
+    VDA Components (/includeadditional when true, /exclude when false):
+      Component names are CASE-SENSITIVE per Citrix docs.
+      VID_VDA_INCLUDE_MACHINE_IDENTITY = true   Machine Identity Service      (MCS/PVS identity)
+      VID_VDA_INCLUDE_UPM              = true   Citrix Profile Management     + WMI Plug-in
+      VID_VDA_INCLUDE_MCS_IO_DRIVER    = true   Citrix MCS IODriver           (write-cache for MCS)
+      VID_VDA_INCLUDE_RENDEZVOUS       = true   Citrix Rendezvous V2          (direct Gateway HDX)
+      VID_VDA_INCLUDE_UPGRADE_AGENT    = false  Citrix VDA Upgrade Agent      (cloud-managed upgrades)
+      VID_VDA_INCLUDE_UPL              = false  User personalization layer    (App Layering only)
 
     .NOTES
     - No controller registration at build time; done via Cloud Connector / GPO.
@@ -186,67 +187,89 @@ function Get-EnvBool {
 
 # -- Installer flags --
 $optMasterMcs      = Get-EnvBool "VID_VDA_MASTERMCS"               $true
-$optEnableEdt      = Get-EnvBool "VID_VDA_ENABLE_EDT"               $true
+$optXenCloud       = Get-EnvBool "VID_VDA_XENDESKTOP_CLOUD"         $true
 $optHdxPorts       = Get-EnvBool "VID_VDA_ENABLE_HDX_PORTS"         $true
+$optHdxUdpPorts    = Get-EnvBool "VID_VDA_ENABLE_HDX_UDP_PORTS"     $true
+$optEnableEdt      = Get-EnvBool "VID_VDA_ENABLE_EDT"               $true
 $optSsPorts        = Get-EnvBool "VID_VDA_ENABLE_SS_PORTS"          $true
 $optDisableCeip    = Get-EnvBool "VID_VDA_DISABLE_CEIP"             $true
 
 # -- Component flags --
-$optMcsIoDriver    = Get-EnvBool "VID_VDA_INCLUDE_MCS_IO_DRIVER"    $true
-$optUpm            = Get-EnvBool "VID_VDA_INCLUDE_UPM"              $true
 $optMachineId      = Get-EnvBool "VID_VDA_INCLUDE_MACHINE_IDENTITY" $true
-$optBcr            = Get-EnvBool "VID_VDA_INCLUDE_BCR"              $true
+$optUpm            = Get-EnvBool "VID_VDA_INCLUDE_UPM"              $true
+$optMcsIoDriver    = Get-EnvBool "VID_VDA_INCLUDE_MCS_IO_DRIVER"    $true
 $optRendezvous     = Get-EnvBool "VID_VDA_INCLUDE_RENDEZVOUS"       $true
-$optTelemetry      = Get-EnvBool "VID_VDA_INCLUDE_TELEMETRY"        $false
+$optUpgradeAgent   = Get-EnvBool "VID_VDA_INCLUDE_UPGRADE_AGENT"    $false
 $optUpl            = Get-EnvBool "VID_VDA_INCLUDE_UPL"              $false
-$optSupportTools   = Get-EnvBool "VID_VDA_INCLUDE_SUPPORT_TOOLS"    $false
 
 Write-Log "--- VDA Feature Flags ---"
-Write-Log "  Flags    : mastermcs=$optMasterMcs  edt=$optEnableEdt  hdx_ports=$optHdxPorts  ss_ports=$optSsPorts  disable_ceip=$optDisableCeip"
-Write-Log "  Components: mcs_io=$optMcsIoDriver  upm=$optUpm  machine_id=$optMachineId  bcr=$optBcr  rendezvous=$optRendezvous  telemetry=$optTelemetry  upl=$optUpl  support_tools=$optSupportTools"
+Write-Log "  Flags     : mastermcs=$optMasterMcs  daas_cloud=$optXenCloud  hdx_ports=$optHdxPorts  hdx_udp=$optHdxUdpPorts  edt=$optEnableEdt  ss_ports=$optSsPorts  disable_ceip=$optDisableCeip"
+Write-Log "  Components: machine_id=$optMachineId  upm=$optUpm  mcs_io=$optMcsIoDriver  rendezvous=$optRendezvous  upgrade_agent=$optUpgradeAgent  upl=$optUpl"
 
 # -----------------------------------------------------------------------------
 # 3. Define installation parameters
 # -----------------------------------------------------------------------------
 
-# Build /includeadditional list
+# Build /includeadditional and /exclude lists.
+# For components installed by default (Machine Identity, Profile Mgmt, MCS IODriver,
+# VDA Upgrade Agent, Rendezvous V2): opt=true → /includeadditional (explicit),
+# opt=false → /exclude. Component names are CASE-SENSITIVE per Citrix docs.
 $IncludeList = [System.Collections.Generic.List[string]]::new()
-if ($optMachineId)    { $IncludeList.Add("Machine Identity Service") }
-if ($optUpm)          { $IncludeList.Add("Citrix User Profile Manager")
-                        $IncludeList.Add("Citrix User Profile Manager WMI Plugin") }
-if ($optBcr)          { $IncludeList.Add("Browser Content Redirection") }
-if ($optRendezvous)   { $IncludeList.Add("Citrix Rendezvous V2") }
-if ($optMcsIoDriver)  { $IncludeList.Add("Citrix MCS IODriver") }
-if ($optTelemetry)    { $IncludeList.Add("Citrix Telemetry Service") }
-if ($optUpl)          { $IncludeList.Add("User Personalization Layer") }
-if ($optSupportTools) { $IncludeList.Add("Citrix Supportability Tools") }
-
-# Build /exclude list (always exclude legacy Personal vDisk; optionally others)
 $ExcludeList = [System.Collections.Generic.List[string]]::new()
-$ExcludeList.Add("Personal vDisk")
-if (-not $optSupportTools) { $ExcludeList.Add("Citrix Supportability Tools") }
-if (-not $optTelemetry)    { $ExcludeList.Add("Citrix Telemetry Service") }
 
-Write-Log "  /includeadditional : $($IncludeList -join ', ')"
-Write-Log "  /exclude           : $($ExcludeList -join ', ')"
+# Machine Identity Service (required for MCS)
+if ($optMachineId)  { $IncludeList.Add("Machine Identity Service") }
+else                { $ExcludeList.Add("Machine Identity Service") }
 
-# Build the argument list
+# Citrix Profile Management + WMI Plug-in (note: exact names + case from docs)
+if ($optUpm) {
+    $IncludeList.Add("Citrix Profile Management")
+    $IncludeList.Add("Citrix Profile Management WMI Plug-in")
+} else {
+    $ExcludeList.Add("Citrix Profile Management")
+    $ExcludeList.Add("Citrix Profile Management WMI Plug-in")
+}
+
+# Citrix MCS IODriver
+if ($optMcsIoDriver) { $IncludeList.Add("Citrix MCS IODriver") }
+else                 { $ExcludeList.Add("Citrix MCS IODriver") }
+
+# Citrix Rendezvous V2
+if ($optRendezvous)  { $IncludeList.Add("Citrix Rendezvous V2") }
+else                 { $ExcludeList.Add("Citrix Rendezvous V2") }
+
+# Citrix VDA Upgrade Agent
+if ($optUpgradeAgent) { $IncludeList.Add("Citrix VDA Upgrade Agent") }
+else                  { $ExcludeList.Add("Citrix VDA Upgrade Agent") }
+
+# User personalization layer (not default-installed; only add if requested)
+if ($optUpl) { $IncludeList.Add("User personalization layer") }
+
+Write-Log "  /includeadditional : $($IncludeList -join ' | ')"
+Write-Log "  /exclude           : $($ExcludeList -join ' | ')"
+
+# Build the installer argument list
 $VdaArguments = [System.Collections.Generic.List[string]]::new()
 $VdaArguments.Add("/quiet")           # Silent install
 $VdaArguments.Add("/noreboot")        # Packer manages reboots
-$VdaArguments.Add("/virtualmachine")  # Optimize for virtual machine deployment
+$VdaArguments.Add("/virtualmachine")  # Override physical-machine BIOS detection in VMs
 
-if ($optMasterMcs)   { $VdaArguments.Add("/mastermcsimage") }
-if ($optEnableEdt)   { $VdaArguments.Add("/enable_real_time_transport") }
-if ($optHdxPorts)    { $VdaArguments.Add("/enable_hdx_ports") }
-if ($optSsPorts)     { $VdaArguments.Add("/enable_ss_ports") }
-if ($optDisableCeip) { $VdaArguments.Add("/disableexperiencemetrics") }
+if ($optMasterMcs)    { $VdaArguments.Add("/mastermcsimage") }
+if ($optXenCloud)     { $VdaArguments.Add("/xendesktopcloud") }
+if ($optHdxPorts)     { $VdaArguments.Add("/enable_hdx_ports") }
+if ($optHdxUdpPorts)  { $VdaArguments.Add("/enable_hdx_udp_ports") }
+if ($optEnableEdt)    { $VdaArguments.Add("/enable_real_time_transport") }
+if ($optSsPorts)      { $VdaArguments.Add("/enable_ss_ports") }
+if ($optDisableCeip)  { $VdaArguments.Add("/disableexperiencemetrics") }
 
 if ($IncludeList.Count -gt 0) {
-    $VdaArguments.Add("/includeadditional `"$($IncludeList -join ',')`"")
+    # Each component name must be individually quoted per Citrix docs
+    $quoted = ($IncludeList | ForEach-Object { "`"$_`"" }) -join ","
+    $VdaArguments.Add("/includeadditional $quoted")
 }
 if ($ExcludeList.Count -gt 0) {
-    $VdaArguments.Add("/exclude `"$($ExcludeList -join ',')`"")
+    $quoted = ($ExcludeList | ForEach-Object { "`"$_`"" }) -join ","
+    $VdaArguments.Add("/exclude $quoted")
 }
 $VdaArguments.Add("/logpath C:\Windows\Temp\CitrixVDAInstall")
 

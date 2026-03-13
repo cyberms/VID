@@ -363,81 +363,85 @@ variable "vid_vda_installer" {
 variable "vid_vda_mastermcs" {
   type        = bool
   default     = true
-  description = "Passes /mastermcsimage to the VDA installer. Marks this as an MCS master image (disables auto-registration at build time). Set false for PVS or manually-provisioned desktops."
+  description = "Passes /mastermcsimage. Marks this machine as an MCS master image (disables auto DDC-registration at build time). Set false only for PVS (/masterpvsimage) or manually-provisioned desktops."
 }
 
-variable "vid_vda_enable_edt" {
+variable "vid_vda_xendesktop_cloud" {
   type        = bool
   default     = true
-  description = "Passes /enable_real_time_transport. Enables Enlightened Data Transport (EDT/UDP) for improved latency and throughput. Requires UDP 1494/2598 to be open on the network."
+  description = "Passes /xendesktopcloud. Signals to the installer that this VDA is for a Citrix DaaS (Cloud) deployment. Always true for Citrix DaaS; set false only for on-premises CVAD."
 }
 
 variable "vid_vda_enable_hdx_ports" {
   type        = bool
   default     = true
-  description = "Passes /enable_hdx_ports. Opens Citrix HDX firewall ports (TCP/UDP 1494, 2598, 8008) during installation."
+  description = "Passes /enable_hdx_ports. Opens TCP firewall ports required by the VDA (1494, 2598, 8008). Must be combined with vid_vda_enable_hdx_udp_ports for full HDX adaptive transport."
+}
+
+variable "vid_vda_enable_hdx_udp_ports" {
+  type        = bool
+  default     = true
+  description = "Passes /enable_hdx_udp_ports. Opens UDP firewall ports for HDX adaptive transport / EDT (UDP 1494, 2598). Required in addition to vid_vda_enable_hdx_ports for EDT to work."
+}
+
+variable "vid_vda_enable_edt" {
+  type        = bool
+  default     = true
+  description = "Passes /enable_real_time_transport. Enables Enlightened Data Transport (EDT/UDP) for audio. Combine with vid_vda_enable_hdx_udp_ports to also open the required UDP ports automatically."
 }
 
 variable "vid_vda_enable_ss_ports" {
   type        = bool
   default     = true
-  description = "Passes /enable_ss_ports. Opens Session Sharing ports (TCP 2513) during installation."
+  description = "Passes /enable_ss_ports. Opens Windows Firewall ports required for screen sharing (session shadowing)."
 }
 
 variable "vid_vda_disable_ceip" {
   type        = bool
   default     = true
-  description = "Passes /disableexperiencemetrics. Disables Citrix Customer Experience Improvement Program (CEIP) data collection."
+  description = "Passes /disableexperiencemetrics. Prevents automatic upload of installation analytics to Citrix. If false, analytics are sent automatically (/sendexperiencemetrics behavior)."
 }
 
-// -- Components: /includeadditional -------------------------------------------
+// -- Components (/includeadditional / /exclude) --------------------------------
+// Components listed here appear in both /includeadditional and /exclude in the
+// Citrix docs. Setting a variable to true explicitly includes the component;
+// setting it to false explicitly excludes it.
+// Component names are CASE-SENSITIVE. Source: Citrix DaaS install-command docs.
 
-variable "vid_vda_include_mcs_io_driver" {
+variable "vid_vda_include_machine_identity" {
   type        = bool
   default     = true
-  description = "Include 'Citrix MCS IODriver'. Installs the MCS I/O Driver (write-cache driver for MCS non-persistent desktops). Requires vid_vda_mastermcs = true to be useful."
+  description = "Controls 'Machine Identity Service'. Installed by default. Required for MCS/PVS catalog provisioning – do NOT disable for MCS deployments. Set false only if using manual provisioning without MCS/PVS."
 }
 
 variable "vid_vda_include_upm" {
   type        = bool
   default     = true
-  description = "Include 'Citrix User Profile Manager' + 'Citrix User Profile Manager WMI Plugin'. Set false if using a third-party profile solution (FSLogix, Ivanti, etc.)."
+  description = "Controls 'Citrix Profile Management' + 'Citrix Profile Management WMI Plug-in'. Installed by default. Even with FSLogix, Citrix recommends keeping the service installed (it doesn't need to be active)."
 }
 
-variable "vid_vda_include_machine_identity" {
+variable "vid_vda_include_mcs_io_driver" {
   type        = bool
   default     = true
-  description = "Include 'Machine Identity Service'. Required for MCS/PVS identity management and machine catalog registration. Disable only for fully manual deployments."
-}
-
-variable "vid_vda_include_bcr" {
-  type        = bool
-  default     = true
-  description = "Include 'Browser Content Redirection'. Offloads browser rendering to the endpoint device, reducing server-side load. Requires a compatible browser extension on the client."
+  description = "Controls 'Citrix MCS IODriver'. The MCS I/O Driver provides write-back cache for non-persistent MCS desktops (significant IOPS reduction). Requires vid_vda_mastermcs = true."
 }
 
 variable "vid_vda_include_rendezvous" {
   type        = bool
   default     = true
-  description = "Include 'Citrix Rendezvous V2'. Enables direct HDX connections from endpoints to Gateway Service, bypassing Cloud Connectors (improves performance in Citrix DaaS)."
+  description = "Controls 'Citrix Rendezvous V2'. Enables direct HDX connections from Citrix Workspace clients to Gateway Service, bypassing Cloud Connectors. Recommended for Citrix DaaS (lowers CC load)."
 }
 
-variable "vid_vda_include_telemetry" {
+variable "vid_vda_include_upgrade_agent" {
   type        = bool
   default     = false
-  description = "Include 'Citrix Telemetry Service' (Call Home). Sends diagnostic data to Citrix. Usually disabled in enterprise environments."
+  description = "Controls 'Citrix VDA Upgrade Agent'. Allows automated in-place VDA upgrades from Citrix Cloud console. Disable in MCS environments where image replacement is the upgrade strategy."
 }
 
 variable "vid_vda_include_upl" {
   type        = bool
   default     = false
-  description = "Include 'User Personalization Layer'. Required only for Citrix App Layering deployments. Do not enable unless App Layering is used."
-}
-
-variable "vid_vda_include_support_tools" {
-  type        = bool
-  default     = false
-  description = "Include 'Citrix Supportability Tools'. Adds Citrix diagnostic and tracing utilities. Increases image size; useful for troubleshooting images, not for production."
+  description = "Includes 'User personalization layer' (/includeadditional only, not installed by default). Required only for Citrix App Layering deployments. Do not enable unless App Layering is in use."
 }
 
 // Option B – vSphere Datastore (legacy / vSphere-only fallback)
