@@ -352,6 +352,31 @@ variable "vid_vda_installer" {
   default     = "VDAWorkstationSetup_2511.exe"
 }
 
+// -- VDA Installer ISO (alternative to SMB) -----------------------------------
+// Instead of pulling the installer from an SMB share at build time, you can
+// pre-build a simple ISO containing the VDA exe, upload it once to a vSphere
+// datastore, and let Packer mount it as a third CD-ROM drive.
+//
+// Create the ISO on Linux (one-time, when updating the VDA version):
+//   mkisofs -J -R -o VDAWorkstationSetup_2511.iso VDAWorkstationSetup_2511.exe
+//   # then upload to the datastore via govc, scp, or vSphere Client
+//
+// When vid_vda_iso_datastore is set, the ISO is mounted automatically and
+// windows-citrix-vda.ps1 detects the installer via its CD-ROM fallback.
+// SMB credentials are not needed in this case.
+
+variable "vid_vda_iso_datastore" {
+  type        = string
+  default     = ""
+  description = "Datastore holding the VDA installer ISO. Leave empty to use SMB (default). Example: 'datastore2'. Combine with vid_vda_iso_path."
+}
+
+variable "vid_vda_iso_path" {
+  type        = string
+  default     = "VID-Data/citrix/vda/VDAWorkstationSetup_2511.iso"
+  description = "Path to the VDA installer ISO on the datastore. Only used when vid_vda_iso_datastore is set. Update when upgrading the VDA version."
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Citrix VDA Installation Options
 // Steuern welche Installer-Flags und Komponenten beim VDA-Setup übergeben werden.

@@ -74,12 +74,21 @@ locals {
   ) : (
     "[] ${var.vmtools_iso_path}"
   )
-  iso_paths = [
-    "[${var.common_iso_datastore}] ${var.iso_path}/${var.iso_file}",
-    local.vmtools_iso_path_resolved
-    // Citrix VDA is NOT mounted as ISO – installer is pulled from SMB at build time.
-    // See: scripts/windows/windows-citrix-vda.ps1 – Option A (SMB)
-  ]
+  // VDA installer ISO path (optional).
+  // Set vid_vda_iso_datastore in sources.pkrvars.hcl to mount a pre-built VDA
+  // ISO as a third CD-ROM. The windows-citrix-vda.ps1 CD-ROM fallback detects
+  // it automatically. Leave empty to use the SMB share instead (Option A).
+  vda_iso_path_resolved = var.vid_vda_iso_datastore != "" ? (
+    "[${var.vid_vda_iso_datastore}] ${var.vid_vda_iso_path}"
+  ) : ""
+  iso_paths = concat(
+    [
+      "[${var.common_iso_datastore}] ${var.iso_path}/${var.iso_file}",
+      local.vmtools_iso_path_resolved,
+    ],
+    // Only add the VDA ISO when vid_vda_iso_datastore is configured
+    local.vda_iso_path_resolved != "" ? [local.vda_iso_path_resolved] : []
+  )
   iso_checksum       = "${var.iso_checksum_type}:${var.iso_checksum_value}"
   manifest_date      = formatdate("YYYY-MM-DD hh:mm:ss", timestamp())
   manifest_path      = "${path.cwd}/manifests/"
