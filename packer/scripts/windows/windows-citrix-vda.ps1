@@ -62,6 +62,16 @@ Write-Log "=== Citrix VDA Installation Start ==="
 Write-Log "PowerShell version: $($PSVersionTable.PSVersion)"
 Write-Log "OS: $([System.Environment]::OSVersion.VersionString)"
 
+# Dump received environment variables for diagnostics (password masked).
+# If any of the VID_SMB_* values show as '(empty)', the Packer var-file is
+# missing or environment_vars are not reaching the elevated scheduled task.
+Write-Log "--- Received Packer environment variables ---"
+Write-Log "  VID_SMB_SERVER   : '$(if ($env:VID_SMB_SERVER)   { $env:VID_SMB_SERVER }   else { '(empty)' })'"
+Write-Log "  VID_SMB_SHARE    : '$(if ($env:VID_SMB_SHARE)    { $env:VID_SMB_SHARE }    else { '(empty)' })'"
+Write-Log "  VID_SMB_USERNAME : '$(if ($env:VID_SMB_USERNAME) { $env:VID_SMB_USERNAME } else { '(empty)' })'"
+Write-Log "  VID_SMB_PASSWORD : $(if ($env:VID_SMB_PASSWORD)  { '(set)' }               else { '(empty - PROBLEM!)' })"
+Write-Log "  VID_VDA_INSTALLER: '$(if ($env:VID_VDA_INSTALLER){ $env:VID_VDA_INSTALLER } else { '(empty - using default)' })'"
+
 # -----------------------------------------------------------------------------
 # 1. Locate / download the VDA installer
 #    Priority: Option A (SMB) -> Option B (vCenter Datastore) -> CD-ROM fallback
@@ -85,7 +95,10 @@ $LocalInstall = "C:\Windows\Temp\$VdaFileName"
 
 # -- Option A: SMB Share (primary / hypervisor-agnostic) ----------------------
 # Requires: VID_SMB_SERVER, VID_SMB_SHARE, VID_SMB_USERNAME, VID_SMB_PASSWORD
-# The VM does NOT need to be domain-joined - credentials are passed explicitly.
+#
+# Uses 'net use' instead of New-PSDrive: New-PSDrive with -Credential calls
+# WNetAddConnection2 which fails silently in Session 0 (elevated scheduled task
+# used by Packer's WinRM elevated_user). 'net use' is more reliable here.
 if ($env:VID_SMB_SERVER -and $env:VID_SMB_SHARE) {
     Write-Log "VID-Data Source: SMB Share (Option A - primary)"
     $uncShare  = "\\$($env:VID_SMB_SERVER)\$($env:VID_SMB_SHARE)"
@@ -94,26 +107,32 @@ if ($env:VID_SMB_SERVER -and $env:VID_SMB_SHARE) {
     Write-Log "VDA source : $vdaSource"
 
     try {
-        $secPass = ConvertTo-SecureString $env:VID_SMB_PASSWORD -AsPlainText -Force
-        $cred    = New-Object System.Management.Automation.PSCredential($env:VID_SMB_USERNAME, $secPass)
+        # Disconnect any stale connection to this share first (ignore errors)
+        & net use $uncShare /delete /yes 2>&1 | Out-Null
 
-        # Map share with explicit credentials (no domain join required)
-        New-PSDrive -Name "VIDShare" -PSProvider FileSystem -Root $uncShare `
-                    -Credential $cred -ErrorAction Stop | Out-Null
-        Write-Log "SMB share mapped successfully."
+        # Connect with explicit credentials via net use
+        $netOut = & net use $uncShare /user:"$($env:VID_SMB_USERNAME)" "$($env:VID_SMB_PASSWORD)" /persistent:no 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "net use failed (exit $LASTEXITCODE): $netOut"
+        }
+        Write-Log "SMB share connected (net use)."
 
-        Copy-Item "VIDShare:\citrix\vda\$VdaFileName" $LocalInstall -Force -ErrorAction Stop
-        Remove-PSDrive -Name "VIDShare" -ErrorAction SilentlyContinue
+        Copy-Item $vdaSource $LocalInstall -Force -ErrorAction Stop
+
+        # Disconnect share
+        & net use $uncShare /delete /yes 2>&1 | Out-Null
 
         $sizeMB = '{0:N1}' -f ((Get-Item $LocalInstall).Length / 1MB)
         Write-Log "VDA installer copied: $LocalInstall ($sizeMB MB)"
         $VdaExe = $LocalInstall
     }
     catch {
-        Remove-PSDrive -Name "VIDShare" -ErrorAction SilentlyContinue
+        & net use $uncShare /delete /yes 2>&1 | Out-Null
         Write-Log "Option A (SMB) failed: $($_.Exception.Message)" "WARN"
         Write-Log "Falling through to Option B (vCenter Datastore) or CD-ROM fallback..." "WARN"
     }
+} else {
+    Write-Log "Option A (SMB) skipped: VID_SMB_SERVER or VID_SMB_SHARE not set." "WARN"
 }
 
 # -- Option B: vCenter Datastore Browser (fallback / vSphere-only) ------------
