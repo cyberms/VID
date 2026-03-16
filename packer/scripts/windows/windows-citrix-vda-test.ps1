@@ -66,7 +66,12 @@ Write-Output "Starte: $VdaExe $installArgs"
 Write-Output "(Dauer: 10-20 Minuten erwartet)"
 Write-Output ""
 
-$p = Start-Process -FilePath $VdaExe -ArgumentList $installArgs -Wait -PassThru -NoNewWindow
+$psi = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName        = $VdaExe
+$psi.Arguments       = $installArgs
+$psi.UseShellExecute = $false
+$p = [System.Diagnostics.Process]::Start($psi)
+$p.WaitForExit()
 Write-Output "Exit Code: $($p.ExitCode)"
 
 # --- Logs ausgeben ---

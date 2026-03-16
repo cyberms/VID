@@ -414,11 +414,20 @@ try {
 }
 
 Write-Log "Starting Citrix VDA installation... (this may take 10-20 minutes)"
+Write-Log "CMD-equivalent: `"$VdaExe`" $ArgumentString"
 
 try {
-    $process = Start-Process -FilePath $VdaExe `
-        -ArgumentList $ArgumentString `
-        -Wait -PassThru -NoNewWindow
+    # Use ProcessStartInfo directly instead of Start-Process -ArgumentList.
+    # PowerShell 5.1 Start-Process mangles embedded double quotes in a single
+    # ArgumentList string, causing /includeadditional component names with spaces
+    # to be split or passed as empty tokens -> "component name '{0}' is not valid".
+    # ProcessStartInfo.Arguments is passed verbatim to CreateProcess (like cmd.exe).
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName        = $VdaExe
+    $psi.Arguments       = $ArgumentString
+    $psi.UseShellExecute = $false
+    $process = [System.Diagnostics.Process]::Start($psi)
+    $process.WaitForExit()
 
     $exitCode = $process.ExitCode
     Write-Log "VDA installer exited with code: $exitCode"
