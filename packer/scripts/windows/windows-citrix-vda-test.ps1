@@ -59,7 +59,7 @@ if (-not $VdaExe) { throw "VDA-Installer nicht gefunden (SMB, CD-ROM)." }
 Write-Output "Installer: $VdaExe ($([Math]::Round((Get-Item $VdaExe).Length / 1MB, 1)) MB)"
 
 # --- Minimalaufruf (direkt aus Citrix-Doku, ohne jegliche Extras) ---
-$installArgs = "/quiet /noreboot /enable_hdx_ports /logpath C:\Windows\Temp\CitrixVDAInstall"
+$installArgs = "/quiet /noreboot /virtualmachine /enable_hdx_ports /logpath C:\Windows\Temp\CitrixVDAInstall"
 
 Write-Output ""
 Write-Output "Starte: $VdaExe $installArgs"
