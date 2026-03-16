@@ -29,17 +29,19 @@
       VID_VDA_ENABLE_HDX_PORTS       = true   /enable_hdx_ports      (FW: TCP 1494, 2598, 8008)
       VID_VDA_ENABLE_HDX_UDP_PORTS   = true   /enable_hdx_udp_ports  (FW: UDP 1494, 2598 for EDT)
       VID_VDA_ENABLE_EDT             = true   /enable_real_time_transport  (RealTime Audio/EDT)
-      VID_VDA_ENABLE_SS_PORTS        = true   /enable_ss_ports       (FW: screen sharing)
-      VID_VDA_DISABLE_CEIP           = true   /disableexperiencemetrics  (no analytics to Citrix)
+      VID_VDA_ENABLE_SS_PORTS        = true   /enable_ss_ports            (FW: screen sharing)
+      VID_VDA_DISABLE_CEIP           = true   /disableexperiencemetrics   (no analytics to Citrix)
+      VID_VDA_ENABLE_REMOTE_ASSISTANCE = true  /enable_remote_assistance  (Citrix Director Shadow)
 
     VDA Components (/includeadditional when true, /exclude when false):
       Component names are CASE-SENSITIVE per Citrix docs.
-      VID_VDA_INCLUDE_MACHINE_IDENTITY = true   Machine Identity Service      (MCS/PVS identity)
-      VID_VDA_INCLUDE_UPM              = true   Citrix Profile Management     + WMI Plug-in
-      VID_VDA_INCLUDE_MCS_IO_DRIVER    = true   Citrix MCS IODriver           (write-cache for MCS)
-      VID_VDA_INCLUDE_RENDEZVOUS       = true   Citrix Rendezvous V2          (direct Gateway HDX)
-      VID_VDA_INCLUDE_UPGRADE_AGENT    = false  Citrix VDA Upgrade Agent      (cloud-managed upgrades)
-      VID_VDA_INCLUDE_UPL              = false  User personalization layer    (App Layering only)
+      VID_VDA_INCLUDE_MACHINE_IDENTITY = true   Machine Identity Service              (MCS/PVS identity)
+      VID_VDA_INCLUDE_UPM              = true   Citrix Profile Management             + WMI Plug-in
+      VID_VDA_INCLUDE_MCS_IO_DRIVER    = true   Citrix MCS IODriver                   (write-cache for MCS)
+      VID_VDA_INCLUDE_RENDEZVOUS       = true   Citrix Rendezvous V2                  (direct Gateway HDX)
+      VID_VDA_INCLUDE_WEBSOCKET        = true   Citrix Web Socket VDA Registration Tool (HTML5 Workspace)
+      VID_VDA_INCLUDE_UPGRADE_AGENT    = false  Citrix VDA Upgrade Agent              (cloud-managed upgrades)
+      VID_VDA_INCLUDE_UPL              = false  User personalization layer            (App Layering only)
 
     .NOTES
     - No controller registration at build time; done via Cloud Connector / GPO.
@@ -208,25 +210,27 @@ function Get-EnvBool {
 }
 
 # -- Installer flags --
-$optMasterMcs      = Get-EnvBool "VID_VDA_MASTERMCS"               $true
-$optXenCloud       = Get-EnvBool "VID_VDA_XENDESKTOP_CLOUD"         $true
-$optHdxPorts       = Get-EnvBool "VID_VDA_ENABLE_HDX_PORTS"         $true
-$optHdxUdpPorts    = Get-EnvBool "VID_VDA_ENABLE_HDX_UDP_PORTS"     $true
-$optEnableEdt      = Get-EnvBool "VID_VDA_ENABLE_EDT"               $true
-$optSsPorts        = Get-EnvBool "VID_VDA_ENABLE_SS_PORTS"          $true
-$optDisableCeip    = Get-EnvBool "VID_VDA_DISABLE_CEIP"             $true
+$optMasterMcs      = Get-EnvBool "VID_VDA_MASTERMCS"                   $true
+$optXenCloud       = Get-EnvBool "VID_VDA_XENDESKTOP_CLOUD"             $false
+$optHdxPorts       = Get-EnvBool "VID_VDA_ENABLE_HDX_PORTS"             $true
+$optHdxUdpPorts    = Get-EnvBool "VID_VDA_ENABLE_HDX_UDP_PORTS"         $true
+$optEnableEdt      = Get-EnvBool "VID_VDA_ENABLE_EDT"                   $true
+$optSsPorts        = Get-EnvBool "VID_VDA_ENABLE_SS_PORTS"              $false
+$optDisableCeip    = Get-EnvBool "VID_VDA_DISABLE_CEIP"                 $true
+$optRemoteAssist   = Get-EnvBool "VID_VDA_ENABLE_REMOTE_ASSISTANCE"     $true
 
 # -- Component flags --
-$optMachineId      = Get-EnvBool "VID_VDA_INCLUDE_MACHINE_IDENTITY" $true
-$optUpm            = Get-EnvBool "VID_VDA_INCLUDE_UPM"              $true
-$optMcsIoDriver    = Get-EnvBool "VID_VDA_INCLUDE_MCS_IO_DRIVER"    $true
-$optRendezvous     = Get-EnvBool "VID_VDA_INCLUDE_RENDEZVOUS"       $true
-$optUpgradeAgent   = Get-EnvBool "VID_VDA_INCLUDE_UPGRADE_AGENT"    $false
-$optUpl            = Get-EnvBool "VID_VDA_INCLUDE_UPL"              $false
+$optMachineId      = Get-EnvBool "VID_VDA_INCLUDE_MACHINE_IDENTITY"     $true
+$optUpm            = Get-EnvBool "VID_VDA_INCLUDE_UPM"                  $true
+$optMcsIoDriver    = Get-EnvBool "VID_VDA_INCLUDE_MCS_IO_DRIVER"        $true
+$optRendezvous     = Get-EnvBool "VID_VDA_INCLUDE_RENDEZVOUS"           $true
+$optWebSocket      = Get-EnvBool "VID_VDA_INCLUDE_WEBSOCKET"            $true
+$optUpgradeAgent   = Get-EnvBool "VID_VDA_INCLUDE_UPGRADE_AGENT"        $false
+$optUpl            = Get-EnvBool "VID_VDA_INCLUDE_UPL"                  $false
 
 Write-Log "--- VDA Feature Flags ---"
-Write-Log "  Flags     : mastermcs=$optMasterMcs  daas_cloud=$optXenCloud  hdx_ports=$optHdxPorts  hdx_udp=$optHdxUdpPorts  edt=$optEnableEdt  ss_ports=$optSsPorts  disable_ceip=$optDisableCeip"
-Write-Log "  Components: machine_id=$optMachineId  upm=$optUpm  mcs_io=$optMcsIoDriver  rendezvous=$optRendezvous  upgrade_agent=$optUpgradeAgent  upl=$optUpl"
+Write-Log "  Flags     : mastermcs=$optMasterMcs  daas_cloud=$optXenCloud  hdx_ports=$optHdxPorts  hdx_udp=$optHdxUdpPorts  edt=$optEnableEdt  ss_ports=$optSsPorts  disable_ceip=$optDisableCeip  remote_assist=$optRemoteAssist"
+Write-Log "  Components: machine_id=$optMachineId  upm=$optUpm  mcs_io=$optMcsIoDriver  rendezvous=$optRendezvous  websocket=$optWebSocket  upgrade_agent=$optUpgradeAgent  upl=$optUpl"
 
 # -----------------------------------------------------------------------------
 # 3. Define installation parameters
@@ -267,6 +271,13 @@ else                  { $ExcludeList.Add("Citrix VDA Upgrade Agent") }
 # User personalization layer (not default-installed; only add if requested)
 if ($optUpl) { $IncludeList.Add("User personalization layer") }
 
+# Citrix Web Socket VDA Registration Tool (HTML5 Workspace / StoreFront WebSocket access)
+if ($optWebSocket)  { $IncludeList.Add("Citrix Web Socket VDA Registration Tool") }
+else                { $ExcludeList.Add("Citrix Web Socket VDA Registration Tool") }
+
+# Citrix Personalization for App-V - VDA: always exclude (no App-V in this MCS stack)
+$ExcludeList.Add("Citrix Personalization for App-V - VDA")
+
 Write-Log "  /includeadditional : $($IncludeList -join ' | ')"
 Write-Log "  /exclude           : $($ExcludeList -join ' | ')"
 
@@ -281,7 +292,11 @@ if ($optHdxPorts)     { $VdaArguments.Add("/enable_hdx_ports") }
 if ($optHdxUdpPorts)  { $VdaArguments.Add("/enable_hdx_udp_ports") }
 if ($optEnableEdt)    { $VdaArguments.Add("/enable_real_time_transport") }
 if ($optSsPorts)      { $VdaArguments.Add("/enable_ss_ports") }
-if ($optDisableCeip)  { $VdaArguments.Add("/disableexperiencemetrics") }
+if ($optDisableCeip)   { $VdaArguments.Add("/disableexperiencemetrics") }
+if ($optRemoteAssist)  { $VdaArguments.Add("/enable_remote_assistance") }
+$VdaArguments.Add("/components vda")      # Install VDA component only (not Delivery Controller)
+$VdaArguments.Add("/remove_appdisk_ack")  # Acknowledge removal of deprecated AppDisk feature
+$VdaArguments.Add("/remove_pvd_ack")      # Acknowledge removal of deprecated Personal vDisk feature
 
 if ($IncludeList.Count -gt 0) {
     # Each component name must be individually quoted per Citrix docs
@@ -498,77 +513,150 @@ finally {
 }
 
 # -----------------------------------------------------------------------------
-# 4. Verify key VDA files are present
+# 4. Post-install VDA configuration
+#    Based on best practices from Citrix docs and community reference scripts.
+#    Ref: https://github.com/JonathanPitre/Apps/blob/master/Citrix/Virtual%20Delivery%20Agent/
 # -----------------------------------------------------------------------------
 
-Write-Log "Verifying VDA installation..."
+Write-Log "--- Post-install VDA configuration ---"
 
+# --- 4a. Verify key VDA files ------------------------------------------------
+Write-Log "Verifying VDA installation..."
 $vdaPath = "$env:ProgramFiles\Citrix\Virtual Desktop Agent"
 if (Test-Path $vdaPath) {
-    Write-Log "VDA directory found: $vdaPath"
-
+    Write-Log "  VDA directory found: $vdaPath"
     $brokerAgent = Join-Path $vdaPath "BrokerAgent.exe"
     if (Test-Path $brokerAgent) {
         $version = (Get-Item $brokerAgent).VersionInfo.FileVersion
-        Write-Log "BrokerAgent.exe version: $version"
+        Write-Log "  BrokerAgent.exe version: $version"
     } else {
-        Write-Log "WARNING: BrokerAgent.exe not found at expected location." "WARN"
+        Write-Log "  WARNING: BrokerAgent.exe not found at expected location." "WARN"
     }
 } else {
-    Write-Log "WARNING: VDA directory not found at $vdaPath - install may be incomplete." "WARN"
+    Write-Log "  WARNING: VDA directory not found at $vdaPath - install may be incomplete." "WARN"
 }
 
-# -----------------------------------------------------------------------------
-# 5. Configure VDA for Citrix DaaS (Cloud)
-# -----------------------------------------------------------------------------
-
-Write-Log "Configuring VDA registry settings for Citrix DaaS..."
-
-# ListOfDDCs / Controllers can be overridden later via GPO or Citrix Policy
-# For DaaS/Cloud, the Cloud Connector is the DDC - set via GPO or ADMX
-# The following keys ensure the VDA is cloud-ready
-$regPath = "HKLM:\SOFTWARE\Citrix\VirtualDesktopAgent"
-
-if (Test-Path $regPath) {
-    # Ensure the VDA does not try to register immediately (MCS master image)
-    # The controllers will be set by the Cloud Connector auto-discovery
-    Set-ItemProperty -Path $regPath -Name "EnableAutoUpdateFeature" -Value 1 -Type DWord -ErrorAction SilentlyContinue
-    Write-Log "VDA registry configured."
-} else {
-    Write-Log "VDA registry path not found - will be created on first boot." "WARN"
-}
-
-# -----------------------------------------------------------------------------
-# 6. Configure Citrix HDX firewall rules (in case /enable_hdx_ports missed any)
-# -----------------------------------------------------------------------------
-
-Write-Log "Verifying Citrix HDX firewall rules..."
-
-$citrixRules = @(
-    @{Name="Citrix ICA (TCP)";     Protocol="TCP"; Port=1494},
-    @{Name="Citrix CGP (TCP)";     Protocol="TCP"; Port=2598},
-    @{Name="Citrix EDT (UDP)";     Protocol="UDP"; Port=1494},
-    @{Name="Citrix EDT CGP (UDP)"; Protocol="UDP"; Port=2598},
-    @{Name="Citrix MSI (TCP)";     Protocol="TCP"; Port=8008}
+# --- 4b. Windows Defender process exclusions for Citrix ----------------------
+# Prevents Defender from scanning Citrix executables during active sessions.
+# Improves session performance and avoids false-positive interference in Packer
+# Session 0 (SYSTEM context) as well as in running VDI sessions.
+Write-Log "Adding Windows Defender process exclusions for Citrix..."
+$defenderExclusions = @(
+    "$env:ProgramFiles\Citrix\Virtual Desktop Agent\BrokerAgent.exe",
+    "$env:ProgramFiles\Citrix\Virtual Desktop Agent\picaSessionAgent.exe",
+    "$env:ProgramFiles\Citrix\HDX\bin\AudioSrv.exe",
+    "$env:ProgramFiles\Citrix\HDX\bin\CtxAudioService.exe",
+    "$env:ProgramFiles\Citrix\System32\wfshell.exe"
 )
-
-foreach ($rule in $citrixRules) {
-    $existing = Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue
-    if (-not $existing) {
-        New-NetFirewallRule `
-            -DisplayName $rule.Name `
-            -Direction Inbound `
-            -Protocol $rule.Protocol `
-            -LocalPort $rule.Port `
-            -Action Allow `
-            -Profile Any | Out-Null
-        Write-Log "Created firewall rule: $($rule.Name) ($($rule.Protocol):$($rule.Port))"
-    } else {
-        Write-Log "Firewall rule already exists: $($rule.Name)"
+foreach ($exclusion in $defenderExclusions) {
+    try {
+        Add-MpPreference -ExclusionProcess $exclusion -ErrorAction SilentlyContinue
+        Write-Log "  Defender exclusion: $exclusion"
+    } catch {
+        Write-Log "  Could not add exclusion for ${exclusion}: $($_.Exception.Message)" "WARN"
     }
 }
 
-Write-Log "=== Citrix VDA Installation Complete ==="
+# --- 4c. Power management overrides for HDX display --------------------------
+# picaSessionAgent and GFXMGR must hold a DISPLAY power request to prevent
+# the display from powering off in disconnected sessions, which causes a blank
+# screen on reconnect. This replaces the registry-based workaround.
+Write-Log "Configuring power management overrides for HDX display..."
+foreach ($proc in @("picaSessionAgent.exe", "GFXMGR.exe")) {
+    try {
+        & powercfg /requestsoverride PROCESS $proc DISPLAY 2>&1 | Out-Null
+        Write-Log "  powercfg override: $proc -> DISPLAY"
+    } catch {
+        Write-Log "  powercfg override failed for ${proc}: $($_.Exception.Message)" "WARN"
+    }
+}
+
+# --- 4d. Citrix VDA performance and EDT registry tweaks ----------------------
+# Sources:
+#   - Citrix KB CTX247256: SetDisplayRequiredMode prevents blank screen on reconnect
+#   - Citrix docs: EDT BBR + unreliable network settings for Adaptive Transport
+#   - ReducerOverrideMask 23: allow session to satisfy display power policy
+Write-Log "Applying Citrix VDA performance and EDT registry tweaks..."
+$regTweaks = @(
+    # Prevent blank screen on reconnect (Citrix KB CTX247256)
+    @{ Path = "HKLM:\SOFTWARE\Citrix\Ica\IcaLocalUserNameAndDomain"
+       Name = "SetDisplayRequiredMode"; Value = 0; Type = "DWord" },
+    # Enable GCT registration for improved GPU/display detection
+    @{ Path = "HKLM:\SOFTWARE\Citrix\VirtualDesktopAgent"
+       Name = "GctRegistration"; Value = 1; Type = "DWord" },
+    # Allow VDA session to override power-reducer policy (display stays on)
+    @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers"
+       Name = "ReducerOverrideMask"; Value = 23; Type = "DWord" },
+    # EDT BBR: Bottleneck Bandwidth and Round-trip congestion control (EDT 2.0)
+    @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Services\ctxuvi"
+       Name = "edtBBR"; Value = 1; Type = "DWord" },
+    # EDT unreliable network tolerance (improves EDT on lossy WAN/WiFi)
+    @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Services\ctxuvi"
+       Name = "EdtUnreliableAllowed"; Value = 1; Type = "DWord" }
+)
+foreach ($tweak in $regTweaks) {
+    try {
+        if (-not (Test-Path $tweak.Path)) {
+            New-Item -Path $tweak.Path -Force -ErrorAction Stop | Out-Null
+        }
+        Set-ItemProperty -Path $tweak.Path -Name $tweak.Name -Value $tweak.Value `
+                         -Type $tweak.Type -ErrorAction Stop
+        Write-Log "  Registry: $($tweak.Path)\$($tweak.Name) = $($tweak.Value)"
+    } catch {
+        Write-Log "  Registry tweak failed ($($tweak.Path)\$($tweak.Name)): $($_.Exception.Message)" "WARN"
+    }
+}
+
+# --- 4e. Disable Citrix Telemetry Service ------------------------------------
+Write-Log "Disabling CitrixTelemetryService..."
+try {
+    $svc = Get-Service -Name "CitrixTelemetryService" -ErrorAction SilentlyContinue
+    if ($svc) {
+        Set-Service -Name "CitrixTelemetryService" -StartupType Disabled -ErrorAction Stop
+        Stop-Service -Name "CitrixTelemetryService" -Force -ErrorAction SilentlyContinue
+        Write-Log "  CitrixTelemetryService disabled and stopped."
+    } else {
+        Write-Log "  CitrixTelemetryService not found (may not be installed)." "WARN"
+    }
+} catch {
+    Write-Log "  Could not disable CitrixTelemetryService: $($_.Exception.Message)" "WARN"
+}
+
+# --- 4f. CtxUvi process exclusions -------------------------------------------
+# Processes listed here are excluded from user-mode virtualisation (CtxUvi).
+# System and Citrix processes that must run without VDA isolation.
+Write-Log "Configuring CtxUvi process exclusions..."
+$ctxuviPath = "HKLM:\SYSTEM\CurrentControlSet\Services\ctxuvi"
+if (Test-Path $ctxuviPath) {
+    $uviBinaries = @(
+        "wfshell.exe", "wfica32.exe", "concentr.exe", "wfcrun32.exe",
+        "pnamain.exe", "redirector.exe",
+        "AuthManSvr.exe", "ssonsvr.exe", "ssoncom.exe",
+        "picaSessionAgent.exe", "BrokerAgent.exe"
+    )
+    try {
+        Set-ItemProperty -Path $ctxuviPath -Name "UviProcessExcludes" `
+                         -Value ($uviBinaries -join ";") -Type String -ErrorAction Stop
+        Write-Log "  CtxUvi exclusions: $($uviBinaries -join ', ')"
+    } catch {
+        Write-Log "  Could not set CtxUvi exclusions: $($_.Exception.Message)" "WARN"
+    }
+} else {
+    Write-Log "  CtxUvi registry path not found (ctxuvi driver may not be loaded yet)." "WARN"
+}
+
+# --- 4g. Cleanup installer temp file -----------------------------------------
+Write-Log "Cleaning up VDA installer..."
+try {
+    if (Test-Path $LocalInstall) {
+        Remove-Item -Path $LocalInstall -Force -ErrorAction SilentlyContinue
+        Write-Log "  Removed installer: $LocalInstall"
+    }
+} catch {
+    Write-Log "  Cleanup warning: $($_.Exception.Message)" "WARN"
+}
+
+Write-Log "=== Citrix VDA Installation and Configuration Complete ==="
 Write-Log "Log file: $LogFile"
 Write-Log "Citrix VDA install logs: C:\Windows\Temp\CitrixVDAInstall\"
 Write-Log "A reboot is required to complete the VDA installation."

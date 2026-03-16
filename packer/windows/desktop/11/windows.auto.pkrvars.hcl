@@ -120,7 +120,8 @@ vid_vda_enable_hdx_ports     = true   // /enable_hdx_ports          – FW-Regel
 vid_vda_enable_hdx_udp_ports = true   // /enable_hdx_udp_ports      – FW-Regeln: UDP 1494, 2598 (EDT / Adaptive Transport)
 vid_vda_enable_edt           = true   // /enable_real_time_transport – Enlightened Data Transport (EDT) aktivieren
 vid_vda_enable_ss_ports      = false  // /enable_ss_ports           – FW-Regeln für Session-Shadowing (Screen Sharing)
-vid_vda_disable_ceip         = true   // /disableexperiencemetrics  – kein Telemetrie-Upload an Citrix (CEIP deaktivieren)
+vid_vda_disable_ceip             = true   // /disableexperiencemetrics  – kein Telemetrie-Upload an Citrix (CEIP deaktivieren)
+vid_vda_enable_remote_assistance = true   // /enable_remote_assistance  – Windows Remote Assistance (Citrix Director Shadow-Funktion)
 
 // VDA Komponenten (/includeadditional wenn true, /exclude wenn false)
 // Komponentennamen sind CASE-SENSITIVE laut Citrix Doku.
@@ -128,6 +129,7 @@ vid_vda_include_machine_identity = true   // Machine Identity Service           
 vid_vda_include_upm              = true   // Citrix Profile Management             – inkl. WMI Plug-in; auch neben FSLogix empfohlen
 vid_vda_include_mcs_io_driver    = true   // Citrix MCS IODriver                   – Write-Cache für Non-Persistent MCS (IOPS-Reduktion)
 vid_vda_include_rendezvous       = true   // Citrix Rendezvous V2                  – direkter HDX-Pfad via Citrix Gateway (Cloud Connector entlastet)
+vid_vda_include_websocket        = true   // Citrix Web Socket VDA Registration Tool – HTML5 Workspace / StoreFront Browser-Zugriff
 vid_vda_include_upgrade_agent    = false  // Citrix VDA Upgrade Agent              – automatische VDA-Upgrades aus Citrix Cloud; bei MCS: Image-Rebuild bevorzugt
 vid_vda_include_upl              = false  // User personalization layer            – nur bei Citrix App Layering erforderlich
 

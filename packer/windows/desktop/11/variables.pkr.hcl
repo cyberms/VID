@@ -427,6 +427,12 @@ variable "vid_vda_disable_ceip" {
   description = "Passes /disableexperiencemetrics. Prevents automatic upload of installation analytics to Citrix. If false, analytics are sent automatically (/sendexperiencemetrics behavior)."
 }
 
+variable "vid_vda_enable_remote_assistance" {
+  type        = bool
+  default     = true
+  description = "Passes /enable_remote_assistance. Enables Windows Remote Assistance during VDA installation. Required to use the Shadow (session sharing) function in Citrix Director and Studio."
+}
+
 // -- Components (/includeadditional / /exclude) --------------------------------
 // Components listed here appear in both /includeadditional and /exclude in the
 // Citrix docs. Setting a variable to true explicitly includes the component;
@@ -455,6 +461,12 @@ variable "vid_vda_include_rendezvous" {
   type        = bool
   default     = true
   description = "Controls 'Citrix Rendezvous V2'. Enables direct HDX connections from Citrix Workspace clients to Gateway Service, bypassing Cloud Connectors. Recommended for Citrix DaaS (lowers CC load)."
+}
+
+variable "vid_vda_include_websocket" {
+  type        = bool
+  default     = true
+  description = "Controls 'Citrix Web Socket VDA Registration Tool'. Enables WebSocket connectivity for Citrix Workspace HTML5 access and StoreFront browser-based sessions. Recommended for all deployments."
 }
 
 variable "vid_vda_include_upgrade_agent" {

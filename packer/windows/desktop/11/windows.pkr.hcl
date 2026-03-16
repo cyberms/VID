@@ -317,11 +317,13 @@ build {
         "VID_VDA_ENABLE_EDT=${var.vid_vda_enable_edt}",
         "VID_VDA_ENABLE_SS_PORTS=${var.vid_vda_enable_ss_ports}",
         "VID_VDA_DISABLE_CEIP=${var.vid_vda_disable_ceip}",
+        "VID_VDA_ENABLE_REMOTE_ASSISTANCE=${var.vid_vda_enable_remote_assistance}",
         // -- VDA Components (names are case-sensitive per Citrix docs) --------
         "VID_VDA_INCLUDE_MACHINE_IDENTITY=${var.vid_vda_include_machine_identity}",
         "VID_VDA_INCLUDE_UPM=${var.vid_vda_include_upm}",
         "VID_VDA_INCLUDE_MCS_IO_DRIVER=${var.vid_vda_include_mcs_io_driver}",
         "VID_VDA_INCLUDE_RENDEZVOUS=${var.vid_vda_include_rendezvous}",
+        "VID_VDA_INCLUDE_WEBSOCKET=${var.vid_vda_include_websocket}",
         "VID_VDA_INCLUDE_UPGRADE_AGENT=${var.vid_vda_include_upgrade_agent}",
         "VID_VDA_INCLUDE_UPL=${var.vid_vda_include_upl}",
       ]
