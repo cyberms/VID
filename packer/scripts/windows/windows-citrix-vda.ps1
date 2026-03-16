@@ -107,8 +107,11 @@ if ($env:VID_SMB_SERVER -and $env:VID_SMB_SHARE) {
     Write-Log "VDA source : $vdaSource"
 
     try {
-        # Disconnect any stale connection to this share first (ignore errors)
-        & net use $uncShare /delete /yes 2>&1 | Out-Null
+        # Disconnect any stale connection first. Wrap in inner try/catch because
+        # net.exe exits non-zero (writing to stderr) when no connection exists,
+        # which triggers a NativeCommandError under $ErrorActionPreference = "Stop"
+        # even with 2>&1 | Out-Null. The inner catch silently ignores "not found".
+        try { & net use $uncShare /delete /yes 2>&1 | Out-Null } catch { <# no stale connection - OK #> }
 
         # Connect with explicit credentials via net use
         $netOut = & net use $uncShare /user:"$($env:VID_SMB_USERNAME)" "$($env:VID_SMB_PASSWORD)" /persistent:no 2>&1
@@ -119,15 +122,15 @@ if ($env:VID_SMB_SERVER -and $env:VID_SMB_SHARE) {
 
         Copy-Item $vdaSource $LocalInstall -Force -ErrorAction Stop
 
-        # Disconnect share
-        & net use $uncShare /delete /yes 2>&1 | Out-Null
+        # Disconnect share (ignore errors)
+        try { & net use $uncShare /delete /yes 2>&1 | Out-Null } catch { <# ignore disconnect errors #> }
 
         $sizeMB = '{0:N1}' -f ((Get-Item $LocalInstall).Length / 1MB)
         Write-Log "VDA installer copied: $LocalInstall ($sizeMB MB)"
         $VdaExe = $LocalInstall
     }
     catch {
-        & net use $uncShare /delete /yes 2>&1 | Out-Null
+        try { & net use $uncShare /delete /yes 2>&1 | Out-Null } catch { <# ignore disconnect errors #> }
         Write-Log "Option A (SMB) failed: $($_.Exception.Message)" "WARN"
         Write-Log "Falling through to Option B (vCenter Datastore) or CD-ROM fallback..." "WARN"
     }
