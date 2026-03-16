@@ -272,9 +272,8 @@ Write-Log "  /exclude           : $($ExcludeList -join ' | ')"
 
 # Build the installer argument list
 $VdaArguments = [System.Collections.Generic.List[string]]::new()
-$VdaArguments.Add("/quiet")          # Silent install
-$VdaArguments.Add("/noreboot")       # Packer manages reboots
-$VdaArguments.Add("/virtualmachine") # Override physical-machine BIOS detection in VMs
+$VdaArguments.Add("/quiet")    # Silent install
+$VdaArguments.Add("/noreboot") # Packer manages reboots
 
 if ($optMasterMcs)    { $VdaArguments.Add("/mastermcsimage") }
 if ($optXenCloud)     { $VdaArguments.Add("/xendesktopcloud") }
