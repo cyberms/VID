@@ -393,8 +393,8 @@ variable "vid_vda_mastermcs" {
 
 variable "vid_vda_xendesktop_cloud" {
   type        = bool
-  default     = true
-  description = "Passes /xendesktopcloud. Signals to the installer that this VDA is for a Citrix DaaS (Cloud) deployment. Always true for Citrix DaaS; set false only for on-premises CVAD."
+  default     = false
+  description = "Passes /xendesktopcloud. Required for Citrix DaaS (Cloud) deployments. Set false for on-premises CVAD (default). Set true when deploying via Citrix Cloud / DaaS."
 }
 
 variable "vid_vda_enable_hdx_ports" {
@@ -417,8 +417,8 @@ variable "vid_vda_enable_edt" {
 
 variable "vid_vda_enable_ss_ports" {
   type        = bool
-  default     = true
-  description = "Passes /enable_ss_ports. Opens Windows Firewall ports required for screen sharing (session shadowing)."
+  default     = false
+  description = "Passes /enable_ss_ports. Opens Windows Firewall ports required for session shadowing (screen sharing). Only needed if administrators use the Shadow feature in Citrix Director / Studio."
 }
 
 variable "vid_vda_disable_ceip" {
