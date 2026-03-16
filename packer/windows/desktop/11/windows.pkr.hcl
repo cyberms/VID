@@ -326,6 +326,10 @@ build {
         "VID_VDA_INCLUDE_UPL=${var.vid_vda_include_upl}",
       ]
       scripts           = ["${path.cwd}/scripts/windows/windows-citrix-vda.ps1"]
+      // Without /noreboot the installer may reboot the VM mid-script.
+      // Exit codes 8, 1641, 3010 = success + reboot required.
+      // Exit code 1 may occur when the VM reboots and kills the WinRM session.
+      valid_exit_codes  = [0, 1, 3, 8, 1641, 3010]
     }
   }
 
