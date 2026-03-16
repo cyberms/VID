@@ -272,9 +272,10 @@ Write-Log "  /exclude           : $($ExcludeList -join ' | ')"
 
 # Build the installer argument list
 $VdaArguments = [System.Collections.Generic.List[string]]::new()
-$VdaArguments.Add("/quiet")           # Silent install
-$VdaArguments.Add("/noreboot")        # Packer manages reboots
-$VdaArguments.Add("/virtualmachine")  # Override physical-machine BIOS detection in VMs
+$VdaArguments.Add("/quiet")                   # Silent install
+$VdaArguments.Add("/noreboot")               # Packer manages reboots
+$VdaArguments.Add("/virtualmachine")         # Override physical-machine BIOS detection in VMs
+$VdaArguments.Add("/no_pending_reboot_check") # Skip pending-reboot check (Packer handles reboots explicitly)
 
 if ($optMasterMcs)    { $VdaArguments.Add("/mastermcsimage") }
 if ($optXenCloud)     { $VdaArguments.Add("/xendesktopcloud") }
@@ -301,26 +302,34 @@ Write-Log "Arguments: $ArgumentString"
 
 # Helper: dumps Citrix install log files into Packer output so the content
 # is visible even after the VM is destroyed. Called on any non-clean exit.
+# Citrix writes logs to two locations depending on installer version:
+#   /logpath arg  -> C:\Windows\Temp\CitrixVDAInstall\  (component MSI logs)
+#   Always        -> C:\ProgramData\Citrix\XenDesktopSetup\  (bootstrapper log)
 function Write-CitrixInstallLogs {
-    param([string]$LogDir = "C:\Windows\Temp\CitrixVDAInstall")
-    Write-Log "--- Citrix install logs ($LogDir) ---"
-    if (-not (Test-Path $LogDir)) {
-        Write-Log "  Log directory not found - installer may not have started." "WARN"
-        return
-    }
-    $logFiles = Get-ChildItem -Path $LogDir -Filter "*.log" -ErrorAction SilentlyContinue |
-                Sort-Object LastWriteTime
-    if (-not $logFiles) {
-        Write-Log "  No .log files found in $LogDir" "WARN"
-        return
-    }
-    foreach ($lf in $logFiles) {
-        Write-Log "  === $($lf.Name) (last 60 lines) ==="
-        $lines = @(Get-Content $lf.FullName -ErrorAction SilentlyContinue)
-        if ($lines.Count -eq 0) { Write-Log "  (empty)"; continue }
-        $start = [Math]::Max(0, $lines.Count - 60)
-        for ($i = $start; $i -lt $lines.Count; $i++) {
-            Write-Log "  $($lines[$i])"
+    $logDirs = @(
+        "C:\Windows\Temp\CitrixVDAInstall",
+        "C:\ProgramData\Citrix\XenDesktopSetup"
+    )
+    foreach ($LogDir in $logDirs) {
+        Write-Log "--- Citrix install logs: $LogDir ---"
+        if (-not (Test-Path $LogDir)) {
+            Write-Log "  (directory not found)" "WARN"
+            continue
+        }
+        $logFiles = Get-ChildItem -Path $LogDir -Filter "*.log" -ErrorAction SilentlyContinue |
+                    Sort-Object LastWriteTime
+        if (-not $logFiles) {
+            Write-Log "  No .log files found." "WARN"
+            continue
+        }
+        foreach ($lf in $logFiles) {
+            Write-Log "  === $($lf.Name) (last 60 lines) ==="
+            $lines = @(Get-Content $lf.FullName -ErrorAction SilentlyContinue)
+            if ($lines.Count -eq 0) { Write-Log "  (empty)"; continue }
+            $start = [Math]::Max(0, $lines.Count - 60)
+            for ($i = $start; $i -lt $lines.Count; $i++) {
+                Write-Log "  $($lines[$i])"
+            }
         }
     }
 }
@@ -375,16 +384,15 @@ try {
     $exitCode = $process.ExitCode
     Write-Log "VDA installer exited with code: $exitCode"
 
-    # Citrix VDA bootstrapper / MetaInstaller exit codes:
+    # Citrix VDA bootstrapper / MetaInstaller exit codes (per Citrix docs):
     #   0    = All components installed successfully
     #   3    = Partial success (some components failed, no reboot required)
-    #   6    = Bootstrapper-level failure BEFORE component install starts.
-    #          Typical causes: prerequisite check failed (.NET, WMI, pending
-    #          reboot), temp-directory write failure, or the installer wrapper
-    #          could not extract its payload. Always check logs below.
+    #   6    = Undocumented - component-level failure; check logs for root cause.
+    #          /no_pending_reboot_check is now passed to prevent reboot-gate exits.
     #   7    = No change (all components already installed)
     #   8    = Success, reboot required   <- expected with /noreboot
-    #   9    = Partial success + reboot required
+    #   9    = FileLockReboot: pending reboot detected by installer (should not
+    #          occur with /no_pending_reboot_check, but handled just in case)
     #   10   = Failure + reboot required
     #   11   = One component failed + reboot required
     #   1641 = MSI success, reboot required
@@ -396,15 +404,19 @@ try {
         3    { Write-Log "VDA installation partially successful - review logs below." "WARN"
                Write-CitrixInstallLogs }
         6    {
-               # Bootstrapper exited before components installed - dump full logs
-               Write-Log "VDA bootstrapper failed (exit 6). Dumping Citrix install logs..." "ERROR"
+               # Unknown bootstrapper failure - dump all logs for diagnosis
+               Write-Log "VDA installer exited with code 6 (component failure). Dumping logs..." "ERROR"
                Write-CitrixInstallLogs
                $fatal = $true
              }
         7    { Write-Log "VDA already installed (exit 7) - no changes made." "WARN" }
         8    { Write-Log "VDA installation successful. Reboot required (will be handled by Packer)." }
-        9    { Write-Log "VDA partially installed, reboot required. Review logs." "WARN"
-               Write-CitrixInstallLogs }
+        9    {
+               # Pending reboot detected - should not happen with /no_pending_reboot_check
+               Write-Log "VDA installer detected pending reboot (exit 9). Dumping logs..." "ERROR"
+               Write-CitrixInstallLogs
+               $fatal = $true
+             }
         10   { Write-Log "VDA installation failed, reboot required. Dumping logs..." "ERROR"
                Write-CitrixInstallLogs; $fatal = $true }
         11   { Write-Log "One VDA component failed, reboot required. Dumping logs..." "ERROR"
