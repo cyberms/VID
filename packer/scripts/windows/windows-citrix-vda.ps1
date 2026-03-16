@@ -374,6 +374,46 @@ foreach ($entry in $rebootKeys) {
 }
 Write-Log "Pending-reboot check complete."
 
+# -----------------------------------------------------------------------------
+# Validate installer file (PE header check)
+# If the SMB copy silently failed or the file on the share is wrong, the
+# installer exits immediately with no logs. Catching this early saves ~50 min.
+# -----------------------------------------------------------------------------
+Write-Log "Validating VDA installer file..."
+$fileInfo = Get-Item $VdaExe
+Write-Log "  File size: $([Math]::Round($fileInfo.Length / 1MB, 1)) MB"
+if ($fileInfo.Length -lt 100MB) {
+    throw "VDA installer is suspiciously small ($([Math]::Round($fileInfo.Length / 1MB, 1)) MB). File may be corrupt or wrong."
+}
+$mzBytes = [System.IO.File]::ReadAllBytes($VdaExe)[0..1]
+if ($mzBytes[0] -ne 0x4D -or $mzBytes[1] -ne 0x5A) {
+    throw "VDA installer at '$VdaExe' is not a valid PE executable (missing MZ header). File is corrupt or not an EXE."
+}
+Write-Log "  PE header OK (MZ signature verified)."
+
+# -----------------------------------------------------------------------------
+# Disable Windows Defender real-time monitoring during VDA installation.
+# Defender running in Packer's Session 0 (SYSTEM) can silently block the
+# Citrix installer, producing exit code 6 with NO log files written at all.
+# We re-enable it after the install (or it stays off if this is a master image
+# that gets optimized/sealed anyway).
+# -----------------------------------------------------------------------------
+Write-Log "Disabling Windows Defender real-time monitoring for VDA install..."
+try {
+    $mpStatus = Get-MpComputerStatus -ErrorAction SilentlyContinue
+    if ($mpStatus -and $mpStatus.RealTimeProtectionEnabled) {
+        Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop
+        Write-Log "  Defender real-time monitoring disabled."
+        $defenderWasEnabled = $true
+    } else {
+        Write-Log "  Defender real-time monitoring already off or not present."
+        $defenderWasEnabled = $false
+    }
+} catch {
+    Write-Log "  Could not disable Defender: $($_.Exception.Message)" "WARN"
+    $defenderWasEnabled = $false
+}
+
 Write-Log "Starting Citrix VDA installation... (this may take 10-20 minutes)"
 
 try {
@@ -437,6 +477,17 @@ try {
 catch {
     Write-Log "Exception during VDA installation: $($_.Exception.Message)" "ERROR"
     throw
+}
+finally {
+    # Re-enable Defender if we disabled it (runs on both success and failure)
+    if ($defenderWasEnabled) {
+        try {
+            Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction SilentlyContinue
+            Write-Log "Windows Defender real-time monitoring re-enabled."
+        } catch {
+            Write-Log "Could not re-enable Defender: $($_.Exception.Message)" "WARN"
+        }
+    }
 }
 
 # -----------------------------------------------------------------------------
