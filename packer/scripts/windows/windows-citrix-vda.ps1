@@ -299,9 +299,71 @@ $ArgumentString = $VdaArguments -join " "
 Write-Log "VDA installer: $VdaExe"
 Write-Log "Arguments: $ArgumentString"
 
+# Helper: dumps Citrix install log files into Packer output so the content
+# is visible even after the VM is destroyed. Called on any non-clean exit.
+function Write-CitrixInstallLogs {
+    param([string]$LogDir = "C:\Windows\Temp\CitrixVDAInstall")
+    Write-Log "--- Citrix install logs ($LogDir) ---"
+    if (-not (Test-Path $LogDir)) {
+        Write-Log "  Log directory not found - installer may not have started." "WARN"
+        return
+    }
+    $logFiles = Get-ChildItem -Path $LogDir -Filter "*.log" -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime
+    if (-not $logFiles) {
+        Write-Log "  No .log files found in $LogDir" "WARN"
+        return
+    }
+    foreach ($lf in $logFiles) {
+        Write-Log "  === $($lf.Name) (last 60 lines) ==="
+        $lines = @(Get-Content $lf.FullName -ErrorAction SilentlyContinue)
+        if ($lines.Count -eq 0) { Write-Log "  (empty)"; continue }
+        $start = [Math]::Max(0, $lines.Count - 60)
+        for ($i = $start; $i -lt $lines.Count; $i++) {
+            Write-Log "  $($lines[$i])"
+        }
+    }
+}
+
 # -----------------------------------------------------------------------------
 # 3. Run the VDA installation
 # -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Clear pending-reboot registry flags before running the VDA installer.
+# The Citrix bootstrapper checks these keys and exits with code 6 if any are
+# present - even after a reboot, CBS/WU can leave stale entries. This is the
+# most common cause of exit code 6 in automated Packer builds following a
+# domain join or Windows Update step.
+# -----------------------------------------------------------------------------
+Write-Log "Checking for pending-reboot registry flags..."
+$rebootKeys = @(
+    @{ Path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending";
+       Remove = $true },
+    @{ Path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress";
+       Remove = $true },
+    @{ Path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired";
+       Remove = $true },
+    @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager";
+       Name  = "PendingFileRenameOperations";
+       Remove = $false }   # clear value, not key
+)
+foreach ($entry in $rebootKeys) {
+    if ($entry.Name) {
+        # Clear a specific value inside an existing key
+        $val = Get-ItemProperty -Path $entry.Path -Name $entry.Name -ErrorAction SilentlyContinue
+        if ($val) {
+            Write-Log "  Clearing pending reboot value: $($entry.Path)\$($entry.Name)" "WARN"
+            Remove-ItemProperty -Path $entry.Path -Name $entry.Name -Force -ErrorAction SilentlyContinue
+        }
+    } else {
+        if (Test-Path $entry.Path) {
+            Write-Log "  Removing pending reboot key: $($entry.Path)" "WARN"
+            Remove-Item -Path $entry.Path -Force -Recurse -ErrorAction SilentlyContinue
+        }
+    }
+}
+Write-Log "Pending-reboot check complete."
 
 Write-Log "Starting Citrix VDA installation... (this may take 10-20 minutes)"
 
@@ -313,23 +375,51 @@ try {
     $exitCode = $process.ExitCode
     Write-Log "VDA installer exited with code: $exitCode"
 
-    # Citrix VDA exit codes
-    # 0   = Success
-    # 3    = Partial success
-    # 8   = Success, reboot required (expected with /noreboot)
-    # 1641 = Success, reboot required (MSI)
-    # 3010 = Success, reboot required (MSI)
+    # Citrix VDA bootstrapper / MetaInstaller exit codes:
+    #   0    = All components installed successfully
+    #   3    = Partial success (some components failed, no reboot required)
+    #   6    = Bootstrapper-level failure BEFORE component install starts.
+    #          Typical causes: prerequisite check failed (.NET, WMI, pending
+    #          reboot), temp-directory write failure, or the installer wrapper
+    #          could not extract its payload. Always check logs below.
+    #   7    = No change (all components already installed)
+    #   8    = Success, reboot required   <- expected with /noreboot
+    #   9    = Partial success + reboot required
+    #   10   = Failure + reboot required
+    #   11   = One component failed + reboot required
+    #   1641 = MSI success, reboot required
+    #   3010 = MSI success, reboot required
 
+    $fatal = $false
     switch ($exitCode) {
         0    { Write-Log "VDA installation completed successfully." }
-        3    { Write-Log "VDA installation partially successful. Review logs." "WARN" }
+        3    { Write-Log "VDA installation partially successful - review logs below." "WARN"
+               Write-CitrixInstallLogs }
+        6    {
+               # Bootstrapper exited before components installed - dump full logs
+               Write-Log "VDA bootstrapper failed (exit 6). Dumping Citrix install logs..." "ERROR"
+               Write-CitrixInstallLogs
+               $fatal = $true
+             }
+        7    { Write-Log "VDA already installed (exit 7) - no changes made." "WARN" }
         8    { Write-Log "VDA installation successful. Reboot required (will be handled by Packer)." }
+        9    { Write-Log "VDA partially installed, reboot required. Review logs." "WARN"
+               Write-CitrixInstallLogs }
+        10   { Write-Log "VDA installation failed, reboot required. Dumping logs..." "ERROR"
+               Write-CitrixInstallLogs; $fatal = $true }
+        11   { Write-Log "One VDA component failed, reboot required. Dumping logs..." "ERROR"
+               Write-CitrixInstallLogs; $fatal = $true }
         1641 { Write-Log "VDA installation successful. Reboot required (MSI code 1641)." }
         3010 { Write-Log "VDA installation successful. Reboot required (MSI code 3010)." }
         default {
             Write-Log "VDA installation returned unexpected exit code: $exitCode" "ERROR"
-            throw "Citrix VDA installation failed with exit code $exitCode. Check logs in C:\Windows\Temp\CitrixVDAInstall\"
+            Write-CitrixInstallLogs
+            $fatal = $true
         }
+    }
+
+    if ($fatal) {
+        throw "Citrix VDA installation failed with exit code $exitCode. See log output above."
     }
 }
 catch {
