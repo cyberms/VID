@@ -272,10 +272,9 @@ Write-Log "  /exclude           : $($ExcludeList -join ' | ')"
 
 # Build the installer argument list
 $VdaArguments = [System.Collections.Generic.List[string]]::new()
-$VdaArguments.Add("/quiet")                   # Silent install
-$VdaArguments.Add("/noreboot")               # Packer manages reboots
-$VdaArguments.Add("/virtualmachine")         # Override physical-machine BIOS detection in VMs
-$VdaArguments.Add("/no_pending_reboot_check") # Skip pending-reboot check (Packer handles reboots explicitly)
+$VdaArguments.Add("/quiet")          # Silent install
+$VdaArguments.Add("/noreboot")       # Packer manages reboots
+$VdaArguments.Add("/virtualmachine") # Override physical-machine BIOS detection in VMs
 
 if ($optMasterMcs)    { $VdaArguments.Add("/mastermcsimage") }
 if ($optXenCloud)     { $VdaArguments.Add("/xendesktopcloud") }
@@ -431,8 +430,8 @@ try {
     #          /no_pending_reboot_check is now passed to prevent reboot-gate exits.
     #   7    = No change (all components already installed)
     #   8    = Success, reboot required   <- expected with /noreboot
-    #   9    = FileLockReboot: pending reboot detected by installer (should not
-    #          occur with /no_pending_reboot_check, but handled just in case)
+    #   9    = FileLockReboot: pending reboot detected by installer.
+    #          Registry cleanup before install should prevent this.
     #   10   = Failure + reboot required
     #   11   = One component failed + reboot required
     #   1641 = MSI success, reboot required
