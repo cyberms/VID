@@ -39,9 +39,9 @@
       VID_VDA_INCLUDE_UPM              = true   Citrix Profile Management             + WMI Plug-in
       VID_VDA_INCLUDE_MCS_IO_DRIVER    = true   Citrix MCS IODriver                   (write-cache for MCS)
       VID_VDA_INCLUDE_RENDEZVOUS       = true   Citrix Rendezvous V2                  (direct Gateway HDX)
-      VID_VDA_INCLUDE_WEBSOCKET        = true   Citrix Web Socket VDA Registration Tool (HTML5 Workspace)
+      VID_VDA_INCLUDE_WEBSOCKET        = true   Citrix Web Socket Vda Registration Tool (HTML5 Workspace)
       VID_VDA_INCLUDE_UPGRADE_AGENT    = false  Citrix VDA Upgrade Agent              (cloud-managed upgrades)
-      VID_VDA_INCLUDE_UPL              = false  User personalization layer            (App Layering only)
+      VID_VDA_INCLUDE_UPL              = false  User Personalization Layer            (App Layering only)
 
     .NOTES
     - No controller registration at build time; done via Cloud Connector / GPO.
@@ -244,8 +244,10 @@ $IncludeList = [System.Collections.Generic.List[string]]::new()
 $ExcludeList = [System.Collections.Generic.List[string]]::new()
 
 # Machine Identity Service (required for MCS)
-if ($optMachineId)  { $IncludeList.Add("Machine Identity Service") }
-else                { $ExcludeList.Add("Machine Identity Service") }
+# NOTE: NOT listed in /includeadditional valid values - installed by default.
+# We can only explicitly exclude it; adding it to /includeadditional causes
+# "component name '{0}' is not valid" error.
+if (-not $optMachineId) { $ExcludeList.Add("Machine Identity Service") }
 
 # Citrix Profile Management + WMI Plug-in (note: exact names + case from docs)
 if ($optUpm) {
@@ -268,15 +270,17 @@ else                 { $ExcludeList.Add("Citrix Rendezvous V2") }
 if ($optUpgradeAgent) { $IncludeList.Add("Citrix VDA Upgrade Agent") }
 else                  { $ExcludeList.Add("Citrix VDA Upgrade Agent") }
 
-# User personalization layer (not default-installed; only add if requested)
-if ($optUpl) { $IncludeList.Add("User personalization layer") }
+# User Personalization Layer (not default-installed; only add if requested)
+# NOTE: Exact case per installer --help: "User Personalization Layer" (capital L).
+if ($optUpl) { $IncludeList.Add("User Personalization Layer") }
 
-# Citrix Web Socket VDA Registration Tool (HTML5 Workspace / StoreFront WebSocket access)
-if ($optWebSocket)  { $IncludeList.Add("Citrix Web Socket VDA Registration Tool") }
-else                { $ExcludeList.Add("Citrix Web Socket VDA Registration Tool") }
+# Citrix Web Socket Vda Registration Tool (HTML5 Workspace / StoreFront WebSocket access)
+# NOTE: Installer uses mixed-case "Vda" (not "VDA") — case-sensitive; "VDA" → exit code 6.
+if ($optWebSocket)  { $IncludeList.Add("Citrix Web Socket Vda Registration Tool") }
+else                { $ExcludeList.Add("Citrix Web Socket Vda Registration Tool") }
 
-# Citrix Personalization for App-V - VDA: always exclude (no App-V in this MCS stack)
-$ExcludeList.Add("Citrix Personalization for App-V - VDA")
+# NOTE: "Citrix Personalization for App-V - VDA" does NOT exist in VDA 2511 and is therefore
+# intentionally absent from both lists. Adding it to /exclude causes exit code 6.
 
 Write-Log "  /includeadditional : $($IncludeList -join ' | ')"
 Write-Log "  /exclude           : $($ExcludeList -join ' | ')"
