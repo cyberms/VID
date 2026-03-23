@@ -72,6 +72,22 @@ Nicht im Scope von Phase 1:
 
 -   EntraID-only Szenarien (vorgesehen für Phase 3)
 
+## 1.4 Organisatorische Voraussetzungen für VID-Erfolg
+
+VID ist kein reines Technologieprojekt. Der Erfolg des Programms setzt organisatorische Rahmenbedingungen voraus, die vor dem ersten Build erfüllt sein müssen. Technik allein genügt nicht — Standards müssen gelebt, nicht nur beschlossen werden.
+
+**Standardisierung:** Einheitliche OS-Images ohne Ausnahmen. Keine abteilungsspezifischen Sonderpakete auf Layer-5-Ebene. Abweichungen werden ausschließlich in höheren Schichten (L7+) abgebildet.
+
+**Vollautomatisierung:** Kein manuelles Golding. Jede Änderung am Image läuft durch die Packer-Pipeline — reproduzierbar, versioniert und auditierbar. Manuelle Eingriffe in das Master-Image sind nicht erlaubt.
+
+**Strikte Schichtentrennung:** OS (L5), Treiber (L6) und Broker-Komponenten (L7) werden nie auf derselben Ebene gemischt. Das Ziel ist, einzelne Layer updaten zu können, ohne einen vollständigen OS-Rebuild auszulösen.
+
+**Zentrales Software-Repository:** Alle Installer, Konfigurationsdateien und Tools liegen zentral im VID-Data-Share. Kein lokales Caching auf Build-Maschinen — der Share ist die einzige zuverlässige Quelle (Single Source of Truth).
+
+**Klare Governance:** Für jeden Layer ist ein verantwortlicher Owner definiert. Änderungen am Image sind nur durch einen dokumentierten, nachvollziehbaren Prozess erlaubt. Ad-hoc-Patching und direkte VM-Modifikationen sind ausgeschlossen.
+
+**Pilot vor Rollout:** Jedes neue Image wird zuerst in einer dedizierten Pilot-Gruppe validiert, bevor es auf die Gesamtflotte ausgerollt wird. Eine Rückfalloption via vSphere-Snapshot des vorherigen Master-Images muss zum Zeitpunkt des Rollouts stets verfügbar sein.
+
 # 2 Das 8-Schichten-Modell
 
 Das VID-Referenzarchitekturmodell definiert acht klar voneinander getrennte Schichten. Jede Schicht ist technologisch austauschbar. Die folgende Tabelle gibt einen Überblick über alle acht Schichten, ihre Verantwortlichkeiten und die jeweils unterstützten Technologien.
