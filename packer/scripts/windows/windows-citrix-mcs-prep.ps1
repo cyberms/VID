@@ -275,26 +275,13 @@ if ($vidBroker -eq "citrix-mcs") {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 10. Reset Network Adapter (MCS will assign new MAC/IP per VM)
+# 10. Verify Disk Space Saved
 # ─────────────────────────────────────────────────────────────────────────────
+# NOTE: No NIC reset needed for MCS. MCS assigns a new MAC address and IP to
+# each provisioned VM automatically. Resetting the NIC in the master image
+# would break the active WinRM session and cause Packer to abort.
 
-Write-Log "--- [10] Network Identity Reset ---"
-# Clear any static IP / DHCP lease (MCS VMs get fresh DHCP)
-Get-NetAdapter -Physical | ForEach-Object {
-    try {
-        $adapter = $_
-        # Reset to DHCP (MCS VMs should use DHCP or get IP from Citrix provisioning)
-        Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -Dhcp Enabled -ErrorAction SilentlyContinue
-        Write-Log "  Reset NIC to DHCP: $($adapter.Name)"
-    }
-    catch { Write-Log "  NIC reset warning for $($_.Name): $($_.Exception.Message)" "WARN" }
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 11. Verify Disk Space Saved
-# ─────────────────────────────────────────────────────────────────────────────
-
-Write-Log "--- [11] Disk Space Summary ---"
+Write-Log "--- [10] Disk Space Summary ---"
 $disk = Get-PSDrive C
 $usedGB  = [math]::Round($disk.Used / 1GB, 2)
 $freeGB  = [math]::Round($disk.Free / 1GB, 2)
@@ -302,10 +289,10 @@ $totalGB = [math]::Round(($disk.Used + $disk.Free) / 1GB, 2)
 Write-Log "  C: Drive: Used $usedGB GB / Total $totalGB GB / Free $freeGB GB"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 12. Final: Disable Machine Password Change (prevents domain trust issues in MCS)
+# 11. Final: Disable Machine Password Change (prevents domain trust issues in MCS)
 # ─────────────────────────────────────────────────────────────────────────────
 
-Write-Log "--- [12] MCS Domain Trust Preparation ---"
+Write-Log "--- [11] MCS Domain Trust Preparation ---"
 # MCS manages machine account passwords itself.
 # Disable automatic machine account password changes on the master image
 # (MCS will handle this on each provisioned VM individually)
@@ -313,10 +300,10 @@ Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" 
 Write-Log "  Set DisablePasswordChange=1 (MCS will manage per-VM machine passwords)."
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 13. Write MCS Prep Marker (for post-deployment verification)
+# 12. Write MCS Prep Marker (for post-deployment verification)
 # ─────────────────────────────────────────────────────────────────────────────
 
-Write-Log "--- [13] Writing MCS Image Marker ---"
+Write-Log "--- [12] Writing MCS Image Marker ---"
 $marker = @{
     PrepDate     = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
     OSVersion    = [System.Environment]::OSVersion.VersionString
