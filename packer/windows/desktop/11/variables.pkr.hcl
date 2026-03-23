@@ -188,7 +188,7 @@ variable "vm_disk_thin_provisioned" {
 
 variable "vm_disk_d_size" {
   type        = number
-  description = "Size of the D: data disk in MB. Only added to the master image when vid_broker = \"citrix-mcs\". (e.g. 10240 = 10 GB). For all other brokers this variable is ignored."
+  description = "Size of the D: data disk in MB. Added to the master image when vid_broker = \"citrix-mcs\" so that build-time preparations (pagefile config, log folders) can target D:\\. MCS IODriver creates a fresh D: disk per provisioned VM at runtime – the master D: is not cloned. (e.g. 10240 = 10 GB)"
   default     = 10240
 }
 

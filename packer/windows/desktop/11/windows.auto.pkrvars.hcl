@@ -110,20 +110,23 @@ scripts_layer5 = [
 // VID Broker / Delivery Technology
 // Steuert broker-spezifische Build-Optimierungen (Pagefile-Platzierung, Registry-Tweaks).
 //
-// citrix-mcs : D:-Disk (vm_disk_d_size) wird zum Master-Image hinzugefügt.
-//              Pagefile-Präferenz auf D:\ gesetzt (System-managed Size).
-//              MCS IODriver erzeugt beim Provisioning pro VM eine weitere Write-Cache-Disk
-//              (nächste freie Laufwerkbuchstabe nach D:, z.B. E:).
-//              → Pagefile liegt auf der persistenten MCS-Daten-Disk (D:), nicht C:.
+// citrix-mcs : Master-Image erhält eine zweite Platte D: (vm_disk_d_size MB).
+//              Zweck: Build-Zeit-Vorbereitungen auf D:\ (Pagefile-Config, Log-Ordner etc.)
+//              MCS VERHALTEN: MCS klont die D:-Platte des Masters NICHT.
+//              Stattdessen hängt der MCS IODriver beim Provisioning pro VM eine neue
+//              Write-Cache-Disk an – diese erhält ebenfalls den Buchstaben D:.
+//              Die Registry-Einstellung (D:\pagefile.sys) aus mcs-prep.ps1 greift dann
+//              beim ersten Boot der provisionierten VM, sobald MCS D: bereitstellt.
+//              ClearPageFileAtShutdown=0 (Write-Cache-Disk wird per VM neu erstellt).
 //
-// citrix-pvs  : Kein D:-Disk im Master. ClearPageFileAtShutdown=1 (kleinere PVS-Deltas).
-// avd         : Kein D:-Disk im Master. Azure verwaltet Temp-Disk (D:) eigenständig.
-// horizon     : Kein D:-Disk im Master.
-// none        : Kein D:-Disk im Master.
+// citrix-pvs  : Kein D: im Master. ClearPageFileAtShutdown=1 (kleinere PVS-Deltas).
+// avd         : Kein D: im Master. Azure verwaltet Temp-Disk (D:) eigenständig.
+// horizon     : Kein D: im Master.
+// none        : Kein D: im Master.
 //
 // Gültige Werte: citrix-mcs | citrix-pvs | avd | horizon | none
 vid_broker     = "citrix-mcs"
-vm_disk_d_size = 10240   // 10 GB – D: Datenplatte für Pagefile + Logs (nur citrix-mcs)
+vm_disk_d_size = 10240   // 10 GB – D: Datenplatte im Master (nur citrix-mcs)
 
 // Citrix VDA Installation Options
 // Defaults für MCS-Deployment mit Citrix DaaS (Cloud).

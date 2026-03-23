@@ -135,10 +135,11 @@ source "vsphere-iso" "windows-desktop" {
     disk_thin_provisioned = var.vm_disk_thin_provisioned
   }
   // D: data disk – only added when vid_broker = "citrix-mcs".
-  // Used for pagefile + logs. MCS IODriver adds an additional write-cache disk
-  // (E: or next available letter) per provisioned VM at runtime.
-  // All other brokers (pvs, avd, horizon) manage disk layout differently
-  // and must NOT have a D: pre-attached in the master image.
+  // Purpose: allows build-time scripts to prepare D:\ (pagefile config, log folders etc.)
+  // MCS BEHAVIOUR: MCS IODriver does NOT clone this disk to provisioned VMs.
+  // Instead it attaches a fresh write-cache disk (also D:) to each new VM.
+  // The pagefile registry setting (D:\pagefile.sys) set in mcs-prep.ps1 takes effect
+  // on first boot of the provisioned VM once MCS has attached its D: write-cache disk.
   dynamic "storage" {
     for_each = var.vid_broker == "citrix-mcs" ? [1] : []
     content {
@@ -245,10 +246,10 @@ build {
     inline            = var.inline
   }
 
-  // Step 2c [VID Layer 5 – citrix-mcs only]: Initialise D: data disk
-  // Runs only when vid_broker = "citrix-mcs" (dynamic storage block adds the disk above).
-  // Partitions and formats the raw D: disk (Disk 1) so it is available for the
-  // pagefile configuration in windows-citrix-mcs-prep.ps1 (Step 12, step [9]).
+  // Step 2c [VID Layer 7 – citrix-mcs only]: Initialise D: data disk
+  // Runs only when vid_broker = "citrix-mcs" (dynamic storage block adds the raw disk).
+  // Partitions (GPT) and formats (NTFS) the disk so scripts can write to D:\ during build.
+  // The pagefile is configured in windows-citrix-mcs-prep.ps1 (Step 12, step [9]).
   dynamic "provisioner" {
     for_each = var.vid_broker == "citrix-mcs" ? [1] : []
     labels   = ["powershell"]
