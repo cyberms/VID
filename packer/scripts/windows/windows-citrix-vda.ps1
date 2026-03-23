@@ -244,10 +244,13 @@ $IncludeList = [System.Collections.Generic.List[string]]::new()
 $ExcludeList = [System.Collections.Generic.List[string]]::new()
 
 # Machine Identity Service (required for MCS)
-# NOTE: NOT listed in /includeadditional valid values - installed by default.
-# We can only explicitly exclude it; adding it to /includeadditional causes
-# "component name '{0}' is not valid" error.
-if (-not $optMachineId) { $ExcludeList.Add("Machine Identity Service") }
+# Per official docs (CVAD 2511), listed in BOTH /includeadditional and /exclude tables.
+# Default behaviour: installed as part of a standard VDA install.
+# Citrix example: "installing a VDA on an image that is not managed by MCS does not
+# require the Machine Identity Service component" — so exclude only for non-MCS.
+# We never explicitly include it (redundant for default install); only exclude when disabled.
+if ($optMachineId)  { <# default-installed; no explicit /includeadditional needed #> }
+else                { $ExcludeList.Add("Machine Identity Service") }
 
 # Citrix Profile Management + WMI Plug-in (note: exact names + case from docs)
 if ($optUpm) {
@@ -279,8 +282,10 @@ if ($optUpl) { $IncludeList.Add("User Personalization Layer") }
 if ($optWebSocket)  { $IncludeList.Add("Citrix Web Socket Vda Registration Tool") }
 else                { $ExcludeList.Add("Citrix Web Socket Vda Registration Tool") }
 
-# NOTE: "Citrix Personalization for App-V - VDA" does NOT exist in VDA 2511 and is therefore
-# intentionally absent from both lists. Adding it to /exclude causes exit code 6.
+# Citrix Personalization for App-V - VDA
+# Per official docs (CVAD 2511): valid for both /includeadditional and /exclude.
+# Always exclude — no App-V in this MCS stack.
+$ExcludeList.Add("Citrix Personalization for App-V - VDA")
 
 Write-Log "  /includeadditional : $($IncludeList -join ' | ')"
 Write-Log "  /exclude           : $($ExcludeList -join ' | ')"
