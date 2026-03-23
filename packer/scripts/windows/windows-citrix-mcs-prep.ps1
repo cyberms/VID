@@ -218,20 +218,26 @@ catch { Write-Log "  Disk cleanup warning: $($_.Exception.Message)" "WARN" }
 #
 #   Broker         | Strategy
 #   ───────────────┼──────────────────────────────────────────────────────────
-#   citrix-mcs     | Pagefile preference set to D: (no explicit size = system-
-#                  | managed). Citrix MCS IODriver attaches a fresh D: disk to
-#                  | every provisioned VM, replacing the master's C:-only state.
-#                  | Because D: is replaced per VM, ClearPageFileAtShutdown is
-#                  | NOT needed — MCS never retains D: content across rebuilds.
-#                  | C: pagefile is removed so all swap I/O goes to D:.
+#   citrix-mcs     | The master image has C: (OS) + D: (Data, 10 GB).
+#                  | D: was added by Packer (dynamic storage block) and
+#                  | initialised by windows-init-data-disk.ps1 during the build.
 #                  |
-#                  | ⚠ IMPORTANT: the Pagefile path is only a preference stored
-#                  | in the master image registry. Windows will create the
-#                  | actual D:\pagefile.sys on first boot of each MCS VM once
-#                  | MCS IODriver has initialised the D: write-cache disk.
-#                  | If D: is not present (e.g. in a test/standalone boot from
-#                  | the master snapshot), Windows automatically falls back to
-#                  | a system-managed pagefile on C:.
+#                  | MCS DOES NOT clone D: from the master to provisioned VMs.
+#                  | Instead, MCS IODriver attaches a fresh write-cache disk to
+#                  | each new VM — this disk also receives the letter D:.
+#                  |
+#                  | This script stores the pagefile preference (D:\pagefile.sys,
+#                  | system-managed size) in the master registry. Windows reads
+#                  | this setting on first boot of each provisioned VM and creates
+#                  | the actual pagefile on the MCS write-cache disk (D:).
+#                  |
+#                  | ClearPageFileAtShutdown = 0: the write-cache disk is
+#                  | replaced per VM by MCS anyway — zeroing is not needed.
+#                  | C: pagefile removed so all swap I/O goes to D:.
+#                  |
+#                  | ⚠ Fallback: if D: is absent (e.g. standalone boot from
+#                  | the master snapshot without MCS), Windows falls back
+#                  | automatically to a system-managed pagefile on C:.
 #                  |
 #   citrix-pvs     | ClearPageFileAtShutdown = 1 on C: (PVS streams the OS
 #   avd            | disk; smaller deltas reduce network traffic on re-stream).
