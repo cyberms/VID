@@ -217,17 +217,15 @@ catch { Write-Log "  Disk cleanup warning: $($_.Exception.Message)" "WARN" }
 # 9. Clear Pagefile on Shutdown (for smaller MCS delta disks)
 # ─────────────────────────────────────────────────────────────────────────────
 
-Write-Log "--- [9] Pagefile Optimization ---"
-Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" "ClearPageFileAtShutdown" 1
-Write-Log "  Set ClearPageFileAtShutdown = 1 (pagefile will be zeroed on next shutdown)."
-
 function Set-RegistryValue {
     param([string]$Path, [string]$Name, $Value, [string]$Type = "DWord")
     if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
     Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force | Out-Null
 }
 
+Write-Log "--- [9] Pagefile Optimization ---"
 Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" "ClearPageFileAtShutdown" 1
+Write-Log "  Set ClearPageFileAtShutdown = 1 (pagefile will be zeroed on next shutdown)."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 10. Reset Network Adapter (MCS will assign new MAC/IP per VM)
