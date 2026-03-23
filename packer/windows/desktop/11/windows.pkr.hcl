@@ -248,7 +248,8 @@ build {
   }
 
   // Step 2c [VID Layer 7 – citrix-mcs only]: Initialise D: data disk
-  // Runs only when vid_broker = "citrix-mcs" (dynamic storage block adds the raw disk).
+  // Runs only when vid_broker = "citrix-mcs" (static storage block always adds the disk;
+  // dynamic "storage" is not supported by the vsphere-iso provider).
   // Partitions (GPT) and formats (NTFS) the disk so scripts can write to D:\ during build.
   // The pagefile is configured in windows-citrix-mcs-prep.ps1 (Step 12, step [9]).
   dynamic "provisioner" {

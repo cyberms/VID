@@ -2,11 +2,24 @@
     .DESCRIPTION
     Prepares a Windows 11 VDA master image for Citrix MCS (Machine Creation Services) deployment.
 
-    Performs final cleanup to:
-    - Minimize the image footprint (smaller delta disks in MCS = less storage, faster provisioning)
-    - Remove machine-specific identifiers (for clean MCS cloning)
-    - Verify VDA and Citrix services
-    - Run Citrix Machine Identity preparation
+    Performs final cleanup and optimisations:
+      [1]  VDA Verification           – BrokerAgent.exe + Citrix services present
+      [2]  Temp File Cleanup          – %TEMP%, Windows\Temp, Prefetch, WER
+      [3]  Windows Update Cache       – SoftwareDistribution cleared
+      [4]  Event Logs                 – all logs cleared
+      [5]  DNS Cache                  – ipconfig /flushdns
+      [6]  Build User Profile         – Downloads, cache, history
+      [7]  DISM Component Cleanup     – /StartComponentCleanup
+      [8]  Disk Cleanup               – cleanmgr /sagerun:65535
+      [9]  Pagefile Optimisation      – broker-aware: citrix-mcs → D:\pagefile.sys;
+                                        others → ClearPageFileAtShutdown=1 on C:
+      [10] Disk Space Summary         – C: used/free logged
+      [11] MCS Domain Trust Prep      – DisablePasswordChange=1 (MCS manages per-VM)
+      [12] MCS Image Marker           – JSON written to C:\Windows\Temp\
+
+    NIC reset is intentionally NOT performed: MCS assigns a new MAC address and IP
+    to each provisioned VM automatically. Resetting the NIC in the master image would
+    break the active WinRM session and cause Packer to abort the build.
 
     .NOTES
     !! DO NOT run Sysprep before MCS provisioning !!
