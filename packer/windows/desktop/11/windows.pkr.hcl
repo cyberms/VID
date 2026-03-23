@@ -309,6 +309,8 @@ build {
         // "VSPHERE_DATACENTER=${var.vsphere_datacenter}",
         // "VID_DATASTORE=datastore2",
         // "VID_PATH=VID-Data",
+        // -- Broker / Delivery Technology ------------------------------------
+        "VID_BROKER=${var.vid_broker}",
         // -- VDA Installer Flags (see variables.pkr.hcl for descriptions) ----
         "VID_VDA_MASTERMCS=${var.vid_vda_mastermcs}",
         "VID_VDA_XENDESKTOP_CLOUD=${var.vid_vda_xendesktop_cloud}",
@@ -406,6 +408,7 @@ build {
     content {
       elevated_user     = var.build_username
       elevated_password = var.build_password
+      environment_vars  = ["VID_BROKER=${var.vid_broker}"]
       scripts           = ["${path.cwd}/scripts/windows/windows-citrix-optimize.ps1"]
     }
   }
@@ -417,6 +420,7 @@ build {
     content {
       elevated_user     = var.build_username
       elevated_password = var.build_password
+      environment_vars  = ["VID_BROKER=${var.vid_broker}"]
       scripts           = ["${path.cwd}/scripts/windows/windows-citrix-mcs-prep.ps1"]
     }
   }

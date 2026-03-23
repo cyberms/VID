@@ -107,6 +107,12 @@ scripts_layer5 = [
 // [VID Layer 8 – DEX]      windows-dex-agent.ps1             (später, noch deaktiviert)
 
 // ─────────────────────────────────────────────────────────────────────────────
+// VID Broker / Delivery Technology
+// Steuert broker-spezifische Build-Optimierungen (Pagefile-Platzierung, Registry-Tweaks).
+// Das Master-Image selbst bleibt immer single-disk und broker-agnostisch.
+// Gültige Werte: citrix-mcs | citrix-pvs | avd | horizon | none
+vid_broker = "citrix-mcs"
+
 // Citrix VDA Installation Options
 // Defaults für MCS-Deployment mit Citrix DaaS (Cloud).
 // Alle Werte können in build.pkrvars.hcl oder per -var Flag überschrieben werden.

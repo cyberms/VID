@@ -346,6 +346,29 @@ variable "vid_smb_password" {
   sensitive   = true
 }
 
+// ─── VID Broker / Delivery Technology ────────────────────────────────────────
+// Controls broker-specific optimisations applied during the build.
+// The master image itself is always single-disk and broker-agnostic;
+// this variable only affects post-install tuning (pagefile, registry tweaks, etc.).
+//
+// Valid values:
+//   citrix-mcs  – Citrix MCS (Machine Creation Services)
+//                 Pagefile preference: D: (MCS IODriver creates D: on provisioned VMs)
+//                 ClearPageFileAtShutdown disabled (D: is replaced per VM by MCS)
+//   citrix-pvs  – Citrix Provisioning Services (network streaming)
+//                 Pagefile on C: with ClearPageFileAtShutdown = 1
+//   avd         – Microsoft Azure Virtual Desktop
+//                 Pagefile on C: with ClearPageFileAtShutdown = 1
+//   horizon     – VMware / Broadcom Horizon
+//                 Pagefile on C: with ClearPageFileAtShutdown = 1
+//   none        – No broker; generic standalone image
+
+variable "vid_broker" {
+  type        = string
+  default     = "citrix-mcs"
+  description = "VDI delivery technology / broker. Controls broker-specific build optimisations. Valid: citrix-mcs | citrix-pvs | avd | horizon | none"
+}
+
 variable "vid_vda_installer" {
   type        = string
   description = "Filename of the Citrix VDA installer inside \\\\<server>\\VID-Data\\citrix\\vda\\. (e.g. 'VDAWorkstationSetup_2402.exe')"

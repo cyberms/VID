@@ -214,8 +214,33 @@ try {
 catch { Write-Log "  Disk cleanup warning: $($_.Exception.Message)" "WARN" }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 9. Clear Pagefile on Shutdown (for smaller MCS delta disks)
+# 9. Pagefile Optimization — broker-aware
+#
+#   Broker         | Strategy
+#   ───────────────┼──────────────────────────────────────────────────────────
+#   citrix-mcs     | Pagefile preference set to D: (no explicit size = system-
+#                  | managed). Citrix MCS IODriver attaches a fresh D: disk to
+#                  | every provisioned VM, replacing the master's C:-only state.
+#                  | Because D: is replaced per VM, ClearPageFileAtShutdown is
+#                  | NOT needed — MCS never retains D: content across rebuilds.
+#                  | C: pagefile is removed so all swap I/O goes to D:.
+#                  |
+#                  | ⚠ IMPORTANT: the Pagefile path is only a preference stored
+#                  | in the master image registry. Windows will create the
+#                  | actual D:\pagefile.sys on first boot of each MCS VM once
+#                  | MCS IODriver has initialised the D: write-cache disk.
+#                  | If D: is not present (e.g. in a test/standalone boot from
+#                  | the master snapshot), Windows automatically falls back to
+#                  | a system-managed pagefile on C:.
+#                  |
+#   citrix-pvs     | ClearPageFileAtShutdown = 1 on C: (PVS streams the OS
+#   avd            | disk; smaller deltas reduce network traffic on re-stream).
+#   horizon        |
+#   none           |
 # ─────────────────────────────────────────────────────────────────────────────
+
+$vidBroker = ($env:VID_BROKER -replace '"','').Trim().ToLower()
+Write-Log "--- [9] Pagefile Optimization (VID_BROKER: $vidBroker) ---"
 
 function Set-RegistryValue {
     param([string]$Path, [string]$Name, $Value, [string]$Type = "DWord")
@@ -223,9 +248,25 @@ function Set-RegistryValue {
     Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force | Out-Null
 }
 
-Write-Log "--- [9] Pagefile Optimization ---"
-Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" "ClearPageFileAtShutdown" 1
-Write-Log "  Set ClearPageFileAtShutdown = 1 (pagefile will be zeroed on next shutdown)."
+$memKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
+
+if ($vidBroker -eq "citrix-mcs") {
+    # Remove automatic pagefile management and set D: as preferred location.
+    # MCS IODriver creates a fresh D: disk on each provisioned VM.
+    Set-RegistryValue $memKey "ClearPageFileAtShutdown" 0
+    # PagingFiles REG_MULTI_SZ: "drive:\pagefile.sys initialMB maximumMB"
+    # Using 0 0 = system-managed size on D:; C: entry removed.
+    Set-ItemProperty -Path $memKey -Name "PagingFiles" `
+        -Value @("D:\pagefile.sys 0 0") -Type MultiString -Force
+    Write-Log "  [citrix-mcs] Pagefile preference set to D:\pagefile.sys (system-managed size)."
+    Write-Log "  [citrix-mcs] C: pagefile removed. MCS IODriver will initialise D: on first VM boot."
+    Write-Log "  [citrix-mcs] ClearPageFileAtShutdown = 0 (D: is replaced per VM by MCS; zeroing not needed)."
+} else {
+    # All other brokers: keep pagefile on C:, zero it on shutdown to minimise
+    # delta disk size (PVS network blocks, AVD managed-disk snapshots, etc.).
+    Set-RegistryValue $memKey "ClearPageFileAtShutdown" 1
+    Write-Log "  [$vidBroker] ClearPageFileAtShutdown = 1 (pagefile zeroed on shutdown for smaller deltas)."
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 10. Reset Network Adapter (MCS will assign new MAC/IP per VM)
