@@ -134,18 +134,19 @@ source "vsphere-iso" "windows-desktop" {
     disk_size             = var.vm_disk_size
     disk_thin_provisioned = var.vm_disk_thin_provisioned
   }
-  // D: data disk – only added when vid_broker = "citrix-mcs".
-  // Purpose: allows build-time scripts to prepare D:\ (pagefile config, log folders etc.)
+  // D: data disk (10 GB) – present in the master image for build-time preparations.
+  // Purpose: pagefile config, log folders and other D:\ preparations during the Packer build.
   // MCS BEHAVIOUR: MCS IODriver does NOT clone this disk to provisioned VMs.
   // Instead it attaches a fresh write-cache disk (also D:) to each new VM.
   // The pagefile registry setting (D:\pagefile.sys) set in mcs-prep.ps1 takes effect
   // on first boot of the provisioned VM once MCS has attached its D: write-cache disk.
-  dynamic "storage" {
-    for_each = var.vid_broker == "citrix-mcs" ? [1] : []
-    content {
-      disk_size             = var.vm_disk_d_size
-      disk_thin_provisioned = var.vm_disk_thin_provisioned
-    }
+  // NOTE: dynamic "storage" blocks are not supported by the vsphere-iso provider.
+  // The disk is always present in the master template (all vid_broker values).
+  // For non-MCS builds it remains raw/unformatted – windows-init-data-disk.ps1
+  // only runs when vid_broker = "citrix-mcs" (dynamic provisioner block below).
+  storage {
+    disk_size             = var.vm_disk_d_size
+    disk_thin_provisioned = var.vm_disk_thin_provisioned
   }
   network_adapters {
     network      = var.vsphere_network
