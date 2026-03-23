@@ -134,6 +134,18 @@ source "vsphere-iso" "windows-desktop" {
     disk_size             = var.vm_disk_size
     disk_thin_provisioned = var.vm_disk_thin_provisioned
   }
+  // D: data disk – only added when vid_broker = "citrix-mcs".
+  // Used for pagefile + logs. MCS IODriver adds an additional write-cache disk
+  // (E: or next available letter) per provisioned VM at runtime.
+  // All other brokers (pvs, avd, horizon) manage disk layout differently
+  // and must NOT have a D: pre-attached in the master image.
+  dynamic "storage" {
+    for_each = var.vid_broker == "citrix-mcs" ? [1] : []
+    content {
+      disk_size             = var.vm_disk_d_size
+      disk_thin_provisioned = var.vm_disk_thin_provisioned
+    }
+  }
   network_adapters {
     network      = var.vsphere_network
     network_card = var.vm_network_card
@@ -231,6 +243,20 @@ build {
     elevated_user     = var.build_username
     elevated_password = var.build_password
     inline            = var.inline
+  }
+
+  // Step 2c [VID Layer 5 – citrix-mcs only]: Initialise D: data disk
+  // Runs only when vid_broker = "citrix-mcs" (dynamic storage block adds the disk above).
+  // Partitions and formats the raw D: disk (Disk 1) so it is available for the
+  // pagefile configuration in windows-citrix-mcs-prep.ps1 (Step 12, step [9]).
+  dynamic "provisioner" {
+    for_each = var.vid_broker == "citrix-mcs" ? [1] : []
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      scripts           = ["${path.cwd}/scripts/windows/windows-init-data-disk.ps1"]
+    }
   }
 
   // Step 5 [VID Layer 5 – W11 OS]: Windows Updates (pre-VDA) – OS-level patches only

@@ -186,6 +186,12 @@ variable "vm_disk_thin_provisioned" {
   default     = true
 }
 
+variable "vm_disk_d_size" {
+  type        = number
+  description = "Size of the D: data disk in MB. Only added to the master image when vid_broker = \"citrix-mcs\". (e.g. 10240 = 10 GB). For all other brokers this variable is ignored."
+  default     = 10240
+}
+
 variable "vm_network_card" {
   type        = string
   description = "The virtual network card type. (e.g. 'vmxnet3' or 'e1000e')"

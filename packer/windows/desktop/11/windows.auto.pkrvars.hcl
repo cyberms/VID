@@ -109,9 +109,21 @@ scripts_layer5 = [
 // ─────────────────────────────────────────────────────────────────────────────
 // VID Broker / Delivery Technology
 // Steuert broker-spezifische Build-Optimierungen (Pagefile-Platzierung, Registry-Tweaks).
-// Das Master-Image selbst bleibt immer single-disk und broker-agnostisch.
+//
+// citrix-mcs : D:-Disk (vm_disk_d_size) wird zum Master-Image hinzugefügt.
+//              Pagefile-Präferenz auf D:\ gesetzt (System-managed Size).
+//              MCS IODriver erzeugt beim Provisioning pro VM eine weitere Write-Cache-Disk
+//              (nächste freie Laufwerkbuchstabe nach D:, z.B. E:).
+//              → Pagefile liegt auf der persistenten MCS-Daten-Disk (D:), nicht C:.
+//
+// citrix-pvs  : Kein D:-Disk im Master. ClearPageFileAtShutdown=1 (kleinere PVS-Deltas).
+// avd         : Kein D:-Disk im Master. Azure verwaltet Temp-Disk (D:) eigenständig.
+// horizon     : Kein D:-Disk im Master.
+// none        : Kein D:-Disk im Master.
+//
 // Gültige Werte: citrix-mcs | citrix-pvs | avd | horizon | none
-vid_broker = "citrix-mcs"
+vid_broker     = "citrix-mcs"
+vm_disk_d_size = 10240   // 10 GB – D: Datenplatte für Pagefile + Logs (nur citrix-mcs)
 
 // Citrix VDA Installation Options
 // Defaults für MCS-Deployment mit Citrix DaaS (Cloud).
