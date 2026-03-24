@@ -131,9 +131,11 @@ Die folgenden Schritte erzeugen ein reines, broker-agnostisches Windows 11 Base 
 
 2.  **Schritt 2 -- OS Baseline \[Layer 5\]:** windows-prepare.ps1: TLS-Härtung, Explorer-Einstellungen, Passwort-Policy.
 
-3.  **Schritt 3 -- Windows Updates \[Layer 5\]:** Vollständige Installation aller aktuellen Windows Updates via windows-update Provisioner inkl. automatischer Neustarts.
+3.  **Schritt 2c -- D: Disk Initialisierung \[Layer 7, citrix-mcs only\]:** windows-init-data-disk.ps1: Findet die zweite (noch rohe) Festplatte, initialisiert sie mit GPT, erstellt eine NTFS-Partition (Label "Data") und weist Laufwerksbuchstabe D: zu. Nur aktiv wenn `vid_broker = "citrix-mcs"` (dynamischer Packer-Provisioner). Nicht-MCS-Builds erhalten die rohe Platte, lassen sie unformatiert. Beim MCS-Rollout ignoriert MCS IODriver die D:-Platte des Masters und hängt pro VM eine frische Write-Cache-Disk (ebenfalls D:) an.
 
-4.  **Schritt 4 -- Export \[Layer 5\]:** Übertragung des reinen OS-Images in vSphere Content Library oder XenServer SR als Basis-Template.
+4.  **Schritt 3 -- Windows Updates \[Layer 5\]:** Vollständige Installation aller aktuellen Windows Updates via windows-update Provisioner inkl. automatischer Neustarts.
+
+5.  **Schritt 4 -- Export \[Layer 5\]:** Übertragung des reinen OS-Images in vSphere Content Library oder XenServer SR als Basis-Template.
 
 > **VID-PRINZIP** Das Layer-5-Image enthält keinen VDA, keinen Broker-Agenten und keine anwendungsspezifischen Konfigurationen. Es ist das austauschbare Fundament für alle darüber liegenden Schichten.
 
@@ -263,7 +265,7 @@ Diese Schritte werden nach den Layer-5-Schritten (Kapitel 3.2) im selben Packer-
 
 4.  **Schritt 8 -- Optimierungen \[Layer 7a+7b\]:** windows-citrix-optimize.ps1: VDI-Tuning (Services, Tasks, Telemetrie, AppX, Netzwerk, NTFS).
 
-5.  **Schritt 9 -- MCS Prep \[Layer 7\]:** windows-citrix-mcs-prep.ps1: Temp-Cleanup, DISM, kein Sysprep. VMs erhalten Identität (SID, Hostname) durch MCS.
+5.  **Schritt 9 -- MCS Prep \[Layer 7\]:** windows-citrix-mcs-prep.ps1: Temp-Cleanup, DISM, Eventlog-Clear, kein Sysprep. Pagefile wird auf `D:\` (Write-Cache-Disk) gelegt wenn `vid_broker = "citrix-mcs"`. Kein NIC-Reset (würde WinRM-Session abbrechen; MCS weist neue MAC und IP pro VM automatisch zu). VMs erhalten Identität (SID, Hostname, Domain-Join) durch MCS beim ersten Start.
 
 6.  **Schritt 10 -- Export \[Layer 7\]:** Fertiges MCS-Master-Image in vSphere Content Library oder XenServer SR.
 
@@ -321,19 +323,21 @@ Die gesamte Build- und Deployment-Pipeline ist vollständig automatisiert und ve
 
 5. **5. Optimierungen:** windows-citrix-optimize.ps1 (18 Bereiche, AppX-Cleanup)
 
-6. **6. MCS Prep:** windows-citrix-mcs-prep.ps1 (kein Sysprep! Temp-Cleanup, DISM)
+6. **6. D: Disk Init (citrix-mcs only):** windows-init-data-disk.ps1: GPT, NTFS, Laufwerksbuchstabe D: — nur aktiv wenn `vid_broker = "citrix-mcs"`.
 
-7. **7. Template-Export:** Packer überträgt VM in vSphere Content Library (euc-demo-lib)
+7. **7. MCS Prep:** windows-citrix-mcs-prep.ps1: Temp-Cleanup, DISM, kein Sysprep, Pagefile auf D: (Write-Cache), kein NIC-Reset.
 
-8. **8. Snapshot für MCS:** In vCenter: VM-Snapshot als MCS-Ausgangspunkt erstellen
+8. **8. Template-Export:** Packer überträgt VM in vSphere Content Library (euc-demo-lib)
 
-9. **9. Citrix MCS Catalog:** deploy-citrix-mcs.ps1: Machine Catalog aus VM-Snapshot
+9. **9. Snapshot für MCS:** In vCenter: VM-Snapshot als MCS-Ausgangspunkt erstellen
 
-10. **10. VMs provisionieren:** MCS klont VMs, joined Domain, setzt SIDs, benennt Hosts
+10. **10. Citrix MCS Catalog:** deploy-citrix-mcs.ps1: Machine Catalog aus VM-Snapshot
 
-11. **11. Delivery Group:** Delivery Group erstellen, User-Gruppen zuweisen
+11. **11. VMs provisionieren:** MCS klont VMs, joined Domain, setzt SIDs, benennt Hosts
 
-12. **12. Benutzer erhält Desktop:** Citrix DaaS stellt W11-Desktop über HDX bereit
+12. **12. Delivery Group:** Delivery Group erstellen, User-Gruppen zuweisen
+
+13. **13. Benutzer erhält Desktop:** Citrix DaaS stellt W11-Desktop über HDX bereit
 
 ## 6.2 Build-Skript Verwendung
 
@@ -536,7 +540,7 @@ msiexec /i uberagentESA.msi /quiet /norestart
   **Datei**                                                **Schicht**   **Funktion**
   -------------------------------------------------------- ------------- -----------------------------------------------------------------
   packer/windows/desktop/11/windows.pkr.hcl                5             VMware Build-Definition mit Citrix VDA Provisioner-Kette
-  packer/windows/desktop/11/variables.pkr.hcl              5             Alle Variablen inkl. VID-Data Variablen (vid_data_datastore, vid_data_path, vid_vda_installer)
+  packer/windows/desktop/11/variables.pkr.hcl              5             Alle Variablen inkl. VID-Data Variablen (vid_data_datastore, vid_data_path, vid_vda_installer, vid_broker, vm_disk_d_size)
   packer/windows/desktop/11/windows.auto.pkrvars.hcl       5             W11-spezifische Werte + VID-Data Konfiguration (datastore2/VID-Data)
   packer/windows/desktop/11/data/autounattend.pkrtpl.hcl   5             Windows 11 unattended Setup (EFI, Deutsch-Tastatur, Build-User)
   packer/windows/desktop/11-xenserver/windows.pkr.hcl      5+6           XenServer Build-Definition (xenserver-iso Plugin)
@@ -546,9 +550,10 @@ msiexec /i uberagentESA.msi /quiet /norestart
   packer/scripts/windows/windows-detect-hypervisor.ps1     6             VID: Hypervisor-Erkennung + automatische Tool-Auswahl
   packer/scripts/windows/windows-xenserver-tools.ps1       6             Citrix VM Tools Installation für XenServer
   packer/scripts/windows/windows-prepare.ps1               5             OS Baseline: TLS, RDP, Explorer, Passwort-Policy
-  packer/scripts/windows/windows-citrix-vda.ps1            5             Citrix VDA silent install (/mastermcsimage)
-  packer/scripts/windows/windows-citrix-optimize.ps1       5             VDI-Optimierungen (18 Bereiche, AppX-Cleanup)
-  packer/scripts/windows/windows-citrix-mcs-prep.ps1       5             MCS-Vorbereitung (kein Sysprep, Cleanup, DISM)
+  packer/scripts/windows/windows-init-data-disk.ps1        7             D: Write-Cache-Disk initialisieren (GPT, NTFS) — nur citrix-mcs (dynamischer Provisioner)
+  packer/scripts/windows/windows-citrix-vda.ps1            7             Citrix VDA silent install (/mastermcsimage); vid_broker-aware
+  packer/scripts/windows/windows-citrix-optimize.ps1       7             VDI-Optimierungen (18 Bereiche, AppX-Cleanup); vid_broker-aware
+  packer/scripts/windows/windows-citrix-mcs-prep.ps1       7             MCS-Vorbereitung: Cleanup, DISM, Pagefile auf D:, kein Sysprep, kein NIC-Reset
   packer/scripts/windows/windows-sysprep.ps1               5             Sysprep (nur für PVS/manuelle Duplikation, NICHT MCS)
   packer/scripts/windows/windows-apps-install.ps1          7             App-Framework: Winget + Chocolatey, JSON-Manifest-gesteuert
   packer/scripts/windows/apps-manifest.json                7             Anwendungskatalog mit Gruppe/App/Hypervisor-Unabhängigkeit
@@ -823,6 +828,8 @@ Obwohl technisch alle Schritte in einem einzigen Packer-Build ablaufen (für MCS
   3\. Hypervisor-Treiber        Schicht 6         windows-vmtools.ps1 /\         Ja -- Schicht-6-Script wechseln
                                                   windows-xenserver-tools.ps1    
 
+  2c\. D: Disk Init (citrix-mcs) Schicht 7         windows-init-data-disk.ps1     Ja -- entfällt für non-MCS Broker
+
   4\. VDA Installation          Schicht 7         windows-citrix-vda.ps1         Ja -- Script für anderen Broker ersetzen
 
   5\. Profil-Management Agent   Schicht 7         (CPM via VDA) /\               Ja -- Alternative Profil-Lösung
@@ -832,7 +839,7 @@ Obwohl technisch alle Schritte in einem einzigen Packer-Build ablaufen (für MCS
 
   7\. Optimierungen             Schicht 7         windows-citrix-optimize.ps1    Ja -- broker-spezifisch
 
-  8\. MCS Prep                  Schicht 7         windows-citrix-mcs-prep.ps1    Ja -- broker-spezifisch
+  8\. MCS Prep                  Schicht 7         windows-citrix-mcs-prep.ps1    Ja -- broker-spezifisch; Pagefile auf D:; kein NIC-Reset
   -------------------------------------------------------------------------------------------------------------------------
 
 ## 12.6 Golden Image Build vs. Golden Image Customization
