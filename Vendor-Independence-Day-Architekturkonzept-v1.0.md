@@ -13,7 +13,7 @@ dex: "ControlUp · uberagent · Login Enterprise (VSI)"
 
 Vendor Independence Day (VID) ist ein Architekturprogramm mit dem Ziel, eine Modern-Workplace-Infrastruktur so zu gestalten, dass jede technologische Schicht unabhängig von den anderen ausgetauscht werden kann -- ohne Betriebsunterbrechung und ohne Neuaufbau der gesamten Umgebung.
 
-Das Schichtenmodell umfasst acht klar definierte Ebenen: von der physischen Hardware über den Hypervisor und dessen Steuerungsschicht, die Verzeichnisdienste, das Gast-Betriebssystem, die Treiberschicht und die Applikationen bis hin zum DEX/Monitoring-Layer. Jede Schicht kann durch eine Alternative ersetzt werden, ohne die darüber- oder darunterliegende Schicht neu konfigurieren zu müssen.
+Das Schichtenmodell umfasst acht klar definierte Ebenen: von der physischen Hardware über den Hypervisor und dessen Steuerungsschicht, die Verzeichnisdienste, das Gast-Betriebssystem, die Treiberschicht und die Applikationen bis hin zum DEX/Monitoring-Schicht. Jede Schicht kann durch eine Alternative ersetzt werden, ohne die darüber- oder darunterliegende Schicht neu konfigurieren zu müssen.
 
 ## Phase 1 -- Fokus dieser Dokumentation
 
@@ -121,25 +121,25 @@ Schichten kommunizieren ausschließlich über definierte, standardisierte Schnit
 
 Das Windows 11 Base Image (Schicht 5) wird mit HashiCorp Packer gebaut und ist vollständig hypervisor- und broker-agnostisch. Es enthält weder Hypervisor-spezifische Treiber (Schicht 6) noch Broker-Agenten wie den Citrix VDA (Schicht 7).
 
-Dadurch kann dasselbe Layer-5-Image als Basis für VMware- und XenServer-Deployments sowie für verschiedene Broker-Plattformen (Citrix, AVD, Horizon) genutzt werden. Nur der Packer-Builder-Typ (Schicht 6) und die VDA-Installation (Schicht 7) unterscheiden sich.
+Dadurch kann dasselbe Schicht 5-Image als Basis für VMware- und XenServer-Deployments sowie für verschiedene Broker-Plattformen (Citrix, AVD, Horizon) genutzt werden. Nur der Packer-Builder-Typ (Schicht 6) und die VDA-Installation (Schicht 7) unterscheiden sich.
 
-## 3.2 Packer Build-Schritte Layer 5 (Golden Image)
+## 3.2 Packer Build-Schritte Schicht 5 (Golden Image)
 
 Die folgenden Schritte erzeugen ein reines, broker-agnostisches Windows 11 Base Image. Hypervisor-Treiber (Schicht 6) werden durch die iso_paths-Konfiguration automatisch eingebunden.
 
-1.  **Schritt 1 -- Installation \[Layer 5\]:** Windows 11 unattended Setup via autounattend.xml. EFI, PVSCSI, TPM, Deutsch/Englisch konfiguriert.
+1.  **Schritt 1 -- Installation \[Schicht 5\]:** Windows 11 unattended Setup via autounattend.xml. EFI, PVSCSI, TPM, Deutsch/Englisch konfiguriert.
 
-2.  **Schritt 2 -- OS Baseline \[Layer 5\]:** windows-prepare.ps1: TLS-Härtung, Explorer-Einstellungen, Passwort-Policy.
+2.  **Schritt 2 -- OS Baseline \[Schicht 5\]:** windows-prepare.ps1: TLS-Härtung, Explorer-Einstellungen, Passwort-Policy.
 
-3.  **Schritt 2c -- D: Disk Initialisierung \[Layer 7, citrix-mcs only\]:** windows-init-data-disk.ps1: Findet die zweite (noch rohe) Festplatte, initialisiert sie mit GPT, erstellt eine NTFS-Partition (Label "Data") und weist Laufwerksbuchstabe D: zu. Nur aktiv wenn `vid_broker = "citrix-mcs"` (dynamischer Packer-Provisioner). Nicht-MCS-Builds erhalten die rohe Platte, lassen sie unformatiert. Beim MCS-Rollout ignoriert MCS IODriver die D:-Platte des Masters und hängt pro VM eine frische Write-Cache-Disk (ebenfalls D:) an.
+3.  **Schritt 2c -- D: Disk Initialisierung \[Schicht 7, citrix-mcs only\]:** windows-init-data-disk.ps1: Findet die zweite (noch rohe) Festplatte, initialisiert sie mit GPT, erstellt eine NTFS-Partition (Label "Data") und weist Laufwerksbuchstabe D: zu. Nur aktiv wenn `vid_broker = "citrix-mcs"` (dynamischer Packer-Provisioner). Nicht-MCS-Builds erhalten die rohe Platte, lassen sie unformatiert. Beim MCS-Rollout ignoriert MCS IODriver die D:-Platte des Masters und hängt pro VM eine frische Write-Cache-Disk (ebenfalls D:) an.
 
-4.  **Schritt 3 -- Windows Updates \[Layer 5\]:** Vollständige Installation aller aktuellen Windows Updates via windows-update Provisioner inkl. automatischer Neustarts.
+4.  **Schritt 3 -- Windows Updates \[Schicht 5\]:** Vollständige Installation aller aktuellen Windows Updates via windows-update Provisioner inkl. automatischer Neustarts.
 
-5.  **Schritt 4 -- Export \[Layer 5\]:** Übertragung des reinen OS-Images in vSphere Content Library oder XenServer SR als Basis-Template.
+5.  **Schritt 4 -- Export \[Schicht 5\]:** Übertragung des reinen OS-Images in vSphere Content Library oder XenServer SR als Basis-Template.
 
-> **VID-PRINZIP** Das Layer-5-Image enthält keinen VDA, keinen Broker-Agenten und keine anwendungsspezifischen Konfigurationen. Es ist das austauschbare Fundament für alle darüber liegenden Schichten.
+> **VID-PRINZIP** Das Schicht 5-Image enthält keinen VDA, keinen Broker-Agenten und keine anwendungsspezifischen Konfigurationen. Es ist das austauschbare Fundament für alle darüber liegenden Schichten.
 
-Die VDA-Installation und alle weiteren Layer-7-Schritte sind in Kapitel 5 (Schicht 7) beschrieben.
+Die VDA-Installation und alle weiteren Schicht 7-Schritte sind in Kapitel 5 (Schicht 7) beschrieben.
 
 ## 3.3 Dateistruktur
 
@@ -165,7 +165,7 @@ Ein zentraler Windows-Fileserver-Share dient als VID-Data Repository. Die Ordner
 ```
 \\fileserver.domain.local\VID-Data\
   ├── citrix\
-  │   ├── vda\                    ← VDA-Installer (Layer 7a)  ← AKTIV
+  │   ├── vda\                    ← VDA-Installer (Schicht 7a)  ← AKTIV
   │   └── optimize\               ← optionale Custom-Optimize-Skripte
   ├── microsoft\
   │   ├── avd\                    ← AVD Agent (Phase 3)
@@ -173,12 +173,12 @@ Ein zentraler Windows-Fileserver-Share dient als VID-Data Repository. Die Ordner
   ├── vmware\
   │   └── horizon\                ← Horizon Agent (optional)
   ├── dex\
-  │   ├── controlup\              ← ControlUp Agent (Layer 8, später)
-  │   └── uberagent\              ← uberagent (Layer 8, später)
+  │   ├── controlup\              ← ControlUp Agent (Schicht 8, später)
+  │   └── uberagent\              ← uberagent (Schicht 8, später)
   ├── drivers\
   │   ├── vmware\                 ← zusätzliche VMware-Treiber (falls nötig)
   │   └── xenserver\              ← zusätzliche XenServer-Treiber (falls nötig)
-  └── apps\                       ← Business App Installer (Layer 7c)
+  └── apps\                       ← Business App Installer (Schicht 7c)
 ```
 
 Packer-Variablen:
@@ -197,7 +197,7 @@ Der VDA-Installer wird automatisch aus `\\<vid_smb_server>\VID-Data\citrix\vda\<
 
 Als Rückfalloption kann der Installer alternativ über die vCenter HTTPS Datastore Browser API bezogen werden (Variablen: `VCENTER_URL`, `VID_DATASTORE`, `VID_PATH` als auskommentierte env vars in `windows.pkr.hcl`). Diese Option ist vSphere-spezifisch und entspricht nicht dem VID-Multi-Hypervisor-Prinzip.
 
-> **VID-PRINZIP** Installer-Dateien gehören nicht ins Image. Sie werden zur Buildzeit aus einem zentralen SMB Repository bezogen. Der VDA-Installer kann jederzeit durch Ablegen einer neuen Datei in `citrix\vda\` aktualisiert werden -- ohne OS-Image-Rebuild.
+> **VID-PRINZIP** Installer-Dateien gehören nicht ins Image. Sie werden zur Buildzeit aus einem zentralen SMB Repository bezogen. Der VDA-Installer kann jederzeit durch Ablegen einer neuen Datei in `citrix\vda\` aktualisiert werden — ein erneuter Packer-Build baut das aktualisierte Image dann vollautomatisch.
 
 # 4 Schicht 6: Treiber-Abstraktion
 
@@ -241,35 +241,35 @@ Installationsskript: packer/scripts/windows/windows-vmtools.ps1
 
 Installationsskripte: windows-xenserver-tools.ps1 / windows-detect-hypervisor.ps1
 
-## 4.4 Abhängigkeit Layer 6 → Layer 7
+## 4.4 Abhängigkeit Schicht 6 → Schicht 7
 
 Der Citrix VDA (Schicht 7) hat technische Abhängigkeiten zu den Hypervisor-Treibern (Schicht 6), insbesondere zu den HDX-fähigen Display- und Netzwerktreibern. Die Installationsreihenfolge im Packer-Build ist daher fix: Schicht 6 (Treiber) muss vor Schicht 7 (VDA) abgeschlossen sein.
 
-Das Layer-5-Image (reines OS) bleibt dabei vollständig frei von VDA-Komponenten. Der VDA wird erst im Layer-7-Build-Schritt auf das fertige Layer-5+6-Image aufgebracht.
+Das Schicht 5-Image (reines OS) bleibt dabei vollständig frei von VDA-Komponenten. Der VDA wird erst im Schicht 7-Build-Schritt auf das fertige Schicht 5+6-Image aufgebracht.
 
 > **VDA BUILD-TIPP** VDA-Parameter /mastermcsimage verhindert, dass der VDA im Build-Prozess versucht, sich bei einem Delivery Controller zu registrieren. Die Registrierung erfolgt erst auf den durch MCS provisionierten Maschinen über den Cloud Connector.
 
 # 5 Schicht 7: Applikationsschicht
 
-Schicht 7 umfasst den Broker-Agenten (VDA), das Profil-Management und alle Business-Anwendungen. Sie wird auf das fertige Layer-5+6-Image aufgebracht und ist vollständig austauschbar ohne OS-Rebuild.
+Schicht 7 umfasst den Broker-Agenten (VDA), das Profil-Management und alle Business-Anwendungen. Sie wird auf das fertige Schicht 5+6-Image aufgebracht und ist vollständig austauschbar — ein Schicht-7-Wechsel erfordert nur eine Änderung des Schicht-7-Scripts, kein Eingriff in Schicht-5- oder Schicht-6-Scripts.
 
-## 5.0 Packer Build-Schritte Layer 7 (Customization)
+## 5.0 Packer Build-Schritte Schicht 7 (Customization)
 
-Diese Schritte werden nach den Layer-5-Schritten (Kapitel 3.2) im selben Packer-Lauf ausgeführt. Sie setzen ein vollständig gepatchtes Layer-5-Image mit installierten Layer-6-Treibern voraus.
+Diese Schritte werden nach den Schicht 5-Schritten (Kapitel 3.2) im selben Packer-Lauf ausgeführt. Sie setzen ein vollständig gepatchtes Schicht 5-Image mit installierten Schicht 6-Treibern voraus.
 
-1.  **Schritt 5 -- Citrix VDA \[Layer 7a – Broker Agent\]:** windows-citrix-vda.ps1: VDA-Installer wird zur Buildzeit aus dem VID-Data Repository bezogen (Phase 1: vCenter Datastore Browser API von `[datastore2] VID-Data/`; Phase 2+: SMB Share). Stiller Install mit /mastermcsimage. Kein Controller-Lookup im Build. Austauschbar gegen AVD Agent, Horizon Agent etc.
+1.  **Schritt 5 -- Citrix VDA \[Schicht 7a – Broker Agent\]:** windows-citrix-vda.ps1: VDA-Installer wird zur Buildzeit aus dem VID-Data Repository bezogen (Phase 1: vCenter Datastore Browser API von `[datastore2] VID-Data/`; Phase 2+: SMB Share). Stiller Install mit /mastermcsimage. Kein Controller-Lookup im Build. Austauschbar gegen AVD Agent, Horizon Agent etc.
 
-2.  **Schritt 6 -- Neustart \[Layer 7a\]:** Zwingend nach VDA-Installation für vollständige Treiberintegration.
+2.  **Schritt 6 -- Neustart \[Schicht 7a\]:** Zwingend nach VDA-Installation für vollständige Treiberintegration.
 
-3.  **Schritt 7 -- Post-VDA Updates \[Layer 7a\]:** Zweiter Windows-Update-Lauf für VDA-induzierte Komponenten.
+3.  **Schritt 7 -- Post-VDA Updates \[Schicht 7a\]:** Zweiter Windows-Update-Lauf für VDA-induzierte Komponenten.
 
-4.  **Schritt 8 -- Optimierungen \[Layer 7a+7b\]:** windows-citrix-optimize.ps1: VDI-Tuning (Services, Tasks, Telemetrie, AppX, Netzwerk, NTFS).
+4.  **Schritt 8 -- Optimierungen \[Schicht 7a+7b\]:** windows-citrix-optimize.ps1: VDI-Tuning (Services, Tasks, Telemetrie, AppX, Netzwerk, NTFS).
 
-5.  **Schritt 9 -- MCS Prep \[Layer 7\]:** windows-citrix-mcs-prep.ps1: Temp-Cleanup, DISM, Eventlog-Clear, kein Sysprep. Pagefile wird auf `D:\` (Write-Cache-Disk) gelegt wenn `vid_broker = "citrix-mcs"`. Kein NIC-Reset (würde WinRM-Session abbrechen; MCS weist neue MAC und IP pro VM automatisch zu). VMs erhalten Identität (SID, Hostname, Domain-Join) durch MCS beim ersten Start.
+5.  **Schritt 9 -- MCS Prep \[Schicht 7\]:** windows-citrix-mcs-prep.ps1: Temp-Cleanup, DISM, Eventlog-Clear, kein Sysprep. Pagefile wird auf `D:\` (Write-Cache-Disk) gelegt wenn `vid_broker = "citrix-mcs"`. Kein NIC-Reset (würde WinRM-Session abbrechen; MCS weist neue MAC und IP pro VM automatisch zu). VMs erhalten Identität (SID, Hostname, Domain-Join) durch MCS beim ersten Start.
 
-6.  **Schritt 10 -- Export \[Layer 7\]:** Fertiges MCS-Master-Image in vSphere Content Library oder XenServer SR.
+6.  **Schritt 10 -- Export \[Schicht 7\]:** Fertiges MCS-Master-Image in vSphere Content Library oder XenServer SR.
 
-> **VID-PRINZIP** Layer 5 und Layer 7 sind konzeptionell getrennte Build-Phasen – auch wenn sie im gleichen Packer-Lauf ausgeführt werden. In einer späteren Ausbaustufe können beide Phasen in separate Packer-Builds aufgeteilt werden, sodass das Layer-5-Image als universelle Basis für mehrere Layer-7-Varianten dient.
+> **VID-PRINZIP** Schicht 5 und Schicht 7 sind konzeptionell getrennte Build-Phasen – auch wenn sie im gleichen Packer-Lauf ausgeführt werden. In einer späteren Ausbaustufe können beide Phasen in separate Packer-Builds aufgeteilt werden, sodass das Schicht 5-Image als universelle Basis für mehrere Schicht 7-Varianten dient.
 
 ## 5.1 Phase 1: Skriptbasierter Ansatz
 
@@ -399,12 +399,12 @@ Beide Hypervisoren sind vollständig in das VID-Framework integriert. Die folgen
 
 ## 8.1 Konzept: Digital Employee Experience als eigene Schicht
 
-Schicht 8 erfasst die Benutzererfahrung (Digital Employee Experience, DEX) und die Infrastrukturüberwachung vollständig unabhängig von den darunterliegenden Schichten. DEX-Agenten werden im Master Image installiert (via Packer, Layer 8-Schritt), jedoch **niemals mit hartcodierten Serverkonfigurationen**. Verbindungsparameter (Collector-Adressen, Lizenzserver, Tags) werden ausschließlich über Gruppenrichtlinien (Schicht 4) oder Konfigurationsdateien pro Umgebung verteilt.
+Schicht 8 erfasst die Benutzererfahrung (Digital Employee Experience, DEX) und die Infrastrukturüberwachung vollständig unabhängig von den darunterliegenden Schichten. DEX-Agenten werden im Master Image installiert (via Packer, Schicht 8-Schritt), jedoch **niemals mit hartcodierten Serverkonfigurationen**. Verbindungsparameter (Collector-Adressen, Lizenzserver, Tags) werden ausschließlich über Gruppenrichtlinien (Schicht 4) oder Konfigurationsdateien pro Umgebung verteilt.
 
 **Warum eine eigene Schicht?**
 
 - DEX-Tools sind plattformunabhängig und laufen auf VMware- und XenServer-Images identisch
-- Sie können ohne OS-Rebuild oder VDA-Neuinstallation ausgetauscht werden (ControlUp → uberagent → Nexthink)
+- Ein Wechsel des DEX-Tools (z.B. ControlUp → uberagent → Nexthink) erfordert nur eine Änderung im Apps-Manifest — kein Eingriff in Schicht-5-, Schicht-6- oder Schicht-7-Scripts. Packer führt dann den vollständigen Build mit dem neuen DEX-Agenten durch.
 - Monitoring-Daten dürfen keine Auswirkung auf den Image-Build-Prozess haben
 - Lizenz- und Infrastrukturabhängigkeiten bleiben außerhalb des Images
 
@@ -414,13 +414,13 @@ ControlUp ist eine DEX-Plattform, die Echtzeit-Sitzungsanalyse, proaktive Remedi
 
 **Komponenten im VID-Kontext:**
 
-  **Komponente**            **Funktion**                                                **VID-Layer**
+  **Komponente**            **Funktion**                                                **VID-Schicht**
   ------------------------- ----------------------------------------------------------- ---------------
-  ControlUp Agent           Echtzeit-Monitoring auf der VDA-Maschine                    Layer 8 (Image)
-  ControlUp Monitor         Zentraler Datenaggregator (On-Premises oder Cloud)          Layer 3 (Infra)
-  ControlUp Console/Edge    Management-UI und Automatisierungs-Engine                   Layer 3 (Infra)
-  Scoutbees                 Synthetische Monitoring-Transaktionen (proaktiv)            Layer 3 (Infra)
-  Real-time DX              Session-Analyse, Score-basierte UX-Bewertung                Layer 8
+  ControlUp Agent           Echtzeit-Monitoring auf der VDA-Maschine                    Schicht 8 (Image)
+  ControlUp Monitor         Zentraler Datenaggregator (On-Premises oder Cloud)          Schicht 3 (Infra)
+  ControlUp Console/Edge    Management-UI und Automatisierungs-Engine                   Schicht 3 (Infra)
+  Scoutbees                 Synthetische Monitoring-Transaktionen (proaktiv)            Schicht 3 (Infra)
+  Real-time DX              Session-Analyse, Score-basierte UX-Bewertung                Schicht 8
 
 **Silent Installation:**
 
@@ -441,12 +441,12 @@ uberagent (von vastlimits, jetzt Citrix uberagent) ist ein leichtgewichtiger Mon
 
 **Komponenten im VID-Kontext:**
 
-  **Komponente**              **Funktion**                                                **VID-Layer**
+  **Komponente**              **Funktion**                                                **VID-Schicht**
   --------------------------- ----------------------------------------------------------- ---------------
-  uberagent (Windows Service) Datenerfassung auf der VDA/Endpoint-Maschine               Layer 8 (Image)
-  uberagent.conf              Konfigurationsdatei (Backend, Metriken, Sampling-Rate)     Layer 4 (GPO)
-  Splunk / Elasticsearch      Datenspeicher und Analyse-Backend                          Layer 3 (Infra)
-  uberagent ESA               Endpoint Security Analytics (UEBA, Threat Detection)       Layer 8 (Image)
+  uberagent (Windows Service) Datenerfassung auf der VDA/Endpoint-Maschine               Schicht 8 (Image)
+  uberagent.conf              Konfigurationsdatei (Backend, Metriken, Sampling-Rate)     Schicht 4 (GPO)
+  Splunk / Elasticsearch      Datenspeicher und Analyse-Backend                          Schicht 3 (Infra)
+  uberagent ESA               Endpoint Security Analytics (UEBA, Threat Detection)       Schicht 8 (Image)
 
 **Silent Installation:**
 
@@ -471,10 +471,10 @@ msiexec /i uberagentESA.msi /quiet /norestart
   **VDA-spezifische Daten**  Session Latency, Logon Duration, ICA RTT    App Response Time, Logon Steps, Protocol
   **Lizenzmodell**           Per Named User oder Concurrent              Per Endpoint / Per User
   **Image-Footprint**        Agent ~15 MB                                Agent ~8 MB
-  **VID-Austauschbarkeit**   Hoch (Agent austauschbar ohne OS-Rebuild)   Hoch (Agent austauschbar ohne OS-Rebuild)
+  **VID-Austauschbarkeit**   Hoch (nur Manifest-Eintrag ändern — andere Schicht-Scripts bleiben unberührt)   Hoch (nur Manifest-Eintrag ändern — andere Schicht-Scripts bleiben unberührt)
   **Empfehlung VID**         Primär für Ops-Teams (Echtzeit-Reaktion)   Primär für Analytics (Trend, Security)
 
-> **EMPFEHLUNG** Beide Tools schließen sich nicht aus. ControlUp für operatives Echtzeit-Monitoring und proaktive Remediation, uberagent für historische Trendanalyse und Security-Visibility. Im VID-Kontext werden beide als Layer-8-Agenten im Image installiert und können unabhängig voneinander aktiviert, deaktiviert oder ersetzt werden.
+> **EMPFEHLUNG** Beide Tools schließen sich nicht aus. ControlUp für operatives Echtzeit-Monitoring und proaktive Remediation, uberagent für historische Trendanalyse und Security-Visibility. Im VID-Kontext werden beide als Schicht 8-Agenten im Image installiert und können unabhängig voneinander aktiviert, deaktiviert oder ersetzt werden.
 
 ## 8.4a Login Enterprise (Login VSI) — Image-Validierung gegen Baseline
 
@@ -500,7 +500,7 @@ msiexec /i uberagentESA.msi /quiet /norestart
   **Metrik**           EUX Score, VSImax, Logon-Dauer, App-Antwortzeiten
   **VID-Austausch**    Tool unabhängig von Image-Inhalten
 
-## 8.5 Voraussetzungen (Vorher-Modell Layer 8)
+## 8.5 Voraussetzungen (Vorher-Modell Schicht 8)
 
   **Voraussetzung**                                           **Verantwortung**
   ----------------------------------------------------------- ------------------
@@ -537,7 +537,7 @@ msiexec /i uberagentESA.msi /quiet /norestart
 
 **Geplante Terraform-Ressourcen:** `citrix_machine_catalog`, `citrix_delivery_group`, `citrix_policy_set`, `citrix_zone`, `citrix_vsphere_hypervisor_resource_pool`
 
-> **Abgrenzung Packer / Terraform:** Packer baut das Image (Layer 5--7). Terraform verwaltet die Citrix DaaS Infrastruktur (Schicht 3: Maschinenkataloge, Delivery Groups, Policies). Kein Overlap, klare Verantwortlichkeiten.
+> **Abgrenzung Packer / Terraform:** Packer baut das Image (Schicht 5--7). Terraform verwaltet die Citrix DaaS Infrastruktur (Schicht 3: Maschinenkataloge, Delivery Groups, Policies). Kein Overlap, klare Verantwortlichkeiten.
 
 ## 8.1 Voraussetzungen für Phase 2
 
@@ -814,7 +814,7 @@ Die folgende Tabelle zeigt das überarbeitete Schichtenmodell mit der korrekten 
   **6 -- Treiber / Guest Agents**      VMware Tools · Citrix VM Tools (XenServer) · Hypervisor-spezifische PV-Treiber                                                                                          VMware → XenServer: nur Schicht-6-Script wechseln, Schicht 5 bleibt gleich
   **7 -- Applikationen (erweitert)**   Remote-Desktop-Broker-Agent (Citrix VDA / AVD Agent / Horizon Agent) · Profil-Management (FSLogix / Citrix Profile Manager / UEM) · Business-Apps · Monitoring-Agents   Citrix → AVD: VDA-Script austauschen. OS-Image (Schicht 5+6) unverändert
 
-## 12.3 Broker-Agent Austauschbarkeit (Layer 7)
+## 12.3 Broker-Agent Austauschbarkeit (Schicht 7)
 
 Die folgende Tabelle zeigt die unterstützten Broker-Agents und ihre Installationskommandos -- alle austauschbar innerhalb von Schicht 7:
 
@@ -827,23 +827,23 @@ Die folgende Tabelle zeigt die unterstützten Broker-Agents und ihre Installatio
 
 > **PHASE 1 SCOPE** Für Phase 1 ist ausschließlich der Citrix VDA implementiert. Die Skriptstruktur ist jedoch so angelegt, dass weitere Agents in windows-\[broker\]-agent.ps1 Dateien ergänzt werden können, ohne Schicht 5 oder 6 zu berühren.
 
-## 12.4 Profil-Management Austauschbarkeit (Layer 7)
+## 12.4 Profil-Management Austauschbarkeit (Schicht 7)
 
 Analog zum Broker-Agent ist auch die Profil-Management-Lösung ein Schicht-7-Entscheid:
 
-  **Profil-Lösung**                        **Hersteller**    **Installationsweg (Layer 7)**                    **Konfiguration (Layer 4)**
+  **Profil-Lösung**                        **Hersteller**    **Installationsweg (Schicht 7)**                    **Konfiguration (Schicht 4)**
   ---------------------------------------- ----------------- ------------------------------------------------- --------------------------------
   **Citrix Profile Manager (CPM)**         Citrix            Teil des VDA-Pakets (windows-citrix-vda.ps1)      GPO via Citrix ADMX-Templates
   **FSLogix Profile Container**            Microsoft         winget: Microsoft.FSLogix / windows-fslogix.ps1   GPO via FSLogix ADMX-Templates
   **Liquidware ProfileUnity**              Liquidware        windows-profileunity.ps1                          Management Console + GPO
   **VMware Dynamic Environment Manager**   VMware/Broadcom   windows-dem.ps1                                   GPO / DEM Console
 
-## 12.5 Angepasste Packer Build-Pipeline (Layer-Bewusstsein)
+## 12.5 Angepasste Packer Build-Pipeline (Schicht-Bewusstsein)
 
 Obwohl technisch alle Schritte in einem einzigen Packer-Build ablaufen (für MCS-Effizienz), sind die Provisioner-Schritte klar nach VID-Schichten kommentiert und können bei Bedarf in separate Builds aufgeteilt werden:
 
   -------------------------------------------------------------------------------------------------------------------------
-  **Packer-Schritt**            **VID-Schicht**   **Script**                     **Austauschbar ohne Image-Rebuild**
+  **Packer-Schritt**            **VID-Schicht**   **Script**                     **Script wechselbar ohne Eingriff in andere Schichten**
   ----------------------------- ----------------- ------------------------------ ------------------------------------------
   1\. OS Baseline               Schicht 5         windows-prepare.ps1            Nein -- Teil des Base Image
 
@@ -924,7 +924,7 @@ Alle Business-Anwendungen, IT-Tools und Monitoring-Agenten werden über das JSON
 
 -   **VID-Prinzip:** Hypervisorunabhängig -- identisches Manifest für VMware und XenServer Images
 
-## 13.4 Zusammenfassung: Layer-Ownership
+## 13.4 Zusammenfassung: Schicht-Ownership
 
 Endgültige, verbindliche Zuordnung der Komponenten zu VID-Schichten:
 
