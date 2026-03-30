@@ -23,7 +23,7 @@ PACKER="${PACKER_CMD:-packer}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGETS=(
     "windows/desktop/11"
-    "windows/desktop/11-xenserver"
+    # "windows/desktop/11-xenserver"  # WIP – XenServer plugin setup ausstehend
     "windows/desktop/10"
     "windows/server/2022"
     "windows/server/2019"
