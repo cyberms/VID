@@ -1,13 +1,13 @@
 /*
     DESCRIPTION:
-    Vendor Independence Day (VID) - Layer 5 + 6
+    Vendor Independence Day (VID) - Schicht 5 + 6
     Windows 11 Professional + Citrix VDA master image for Citrix Hypervisor (XenServer).
     
     Uses the xenserver-iso community Packer plugin.
     
     Build Pipeline:
       1. Windows 11 unattended installation
-      2. Citrix VM Tools installation (windows-xenserver-tools.ps1) - Layer 6
+      2. Citrix VM Tools installation (windows-xenserver-tools.ps1) - Schicht 6
       3. WinRM initialization
       4. OS baseline hardening (windows-prepare.ps1)
       5. Windows Updates
@@ -112,7 +112,7 @@ build {
     restart_timeout = "120m"
   }
 
-  // Step 4: Citrix VDA Installation (Layer 5-to-6 bridge)
+  // Step 4: Citrix VDA Installation (Schicht 5-to-6 bridge)
   provisioner "powershell" {
     elevated_user     = var.build_username
     elevated_password = var.build_password

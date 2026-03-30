@@ -1,0 +1,68 @@
+# VID Packer Pipeline – Pre-Commit Hooks
+# Validiert und formatiert alle HCL-Dateien vor jedem Commit.
+#
+# Setup (einmalig):
+#   pip install pre-commit
+#   pre-commit install        # aktiviert Hook im lokalen Repo
+#
+# Manuell ausführen (ohne Commit):
+#   pre-commit run --all-files
+#
+# Einzelnen Hook ausführen:
+#   pre-commit run packer-fmt --all-files
+#   pre-commit run packer-validate --all-files
+#
+# Quellen:
+#   https://github.com/xoap-io/xoap-image-management-templates
+#   https://pre-commit.com/hooks.html
+
+repos:
+  # ── Packer fmt + validate ────────────────────────────────────────────────────
+  - repo: https://github.com/nicholasgasior/pre-commit-packer
+    rev: v0.1.0
+    hooks:
+      - id: packer-fmt
+        name: packer fmt
+        description: Formatiert alle .pkr.hcl und .pkrvars.hcl Dateien.
+        # Läuft auf allen HCL-Dateien außer autounattend-Templates
+        files: ^packer/.*\.(pkr\.hcl|pkrvars\.hcl)$
+        exclude: autounattend\.pkrtpl\.hcl$
+
+      - id: packer-validate
+        name: packer validate
+        description: Validiert alle Packer-Konfigurationen (Syntax + Schema).
+        # Nur auf den Haupt-Build-Verzeichnissen – benötigt PKR_VAR_* für Secrets
+        files: ^packer/windows/(desktop/11|desktop/11-xenserver)/windows.*\.pkr\.hcl$
+
+  # ── Allgemeine Checks ────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trailing Whitespace entfernen
+        files: ^packer/.*\.(hcl|pkrvars\.hcl|ps1|json|xml)$
+
+      - id: end-of-file-fixer
+        name: Dateiende normalisieren (newline)
+        files: ^packer/.*\.(hcl|pkrvars\.hcl|ps1|json)$
+
+      - id: check-merge-conflict
+        name: Merge-Konflikte prüfen
+
+      - id: check-yaml
+        name: YAML-Syntax prüfen (inkl. diese Datei)
+
+      - id: no-commit-to-branch
+        name: Direkten Commit auf main/master verhindern
+        args: ["--branch", "main", "--branch", "master"]
+
+  # ── Secrets-Schutz ──────────────────────────────────────────────────────────
+  # Verhindert versehentliches Committen von Passwörtern aus *.pkrvars.hcl
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.3
+    hooks:
+      - id: gitleaks
+        name: Secrets / Credentials erkennen (gitleaks)
+        description: >
+          Verhindert das Committen von Passwörtern, API-Keys und Credentials.
+          Konfiguration in .gitleaks.toml (Ausnahmen für Beispielwerte).

@@ -1,0 +1,34 @@
+# Gitleaks Konfiguration für VID Packer Pipeline
+# Verhindert das versehentliche Committen von echten Credentials.
+# Beispiel-Werte und Platzhalter sind explizit ausgenommen.
+
+title = "VID Packer – Gitleaks Config"
+
+[extend]
+# Basis-Regeln von gitleaks verwenden
+useDefault = true
+
+[[allowlists]]
+description = "Bekannte Platzhalter und Beispielwerte aus der Doku"
+regexes = [
+  # Beispiel-Passwörter in Kommentaren
+  '''(?i)(example|placeholder|changeme|your[-_]?password|<password>)''',
+  # vSphere-Beispiel-URLs aus Variablen-Descriptions
+  '''sfo-w01|rainpole\.io''',
+  # KMS Generic Volume License Keys (öffentlich bekannt, kein Geheimnis)
+  '''W269N-WFGWX-YVC9B-4J6C9-T83GX''',
+  '''NPPR9-FWDCX-D2C8J-H872K-2YT43''',
+]
+
+# Sensible Dateien explizit prüfen
+[[rules]]
+id = "packer-secrets"
+description = "Packer-Credentials in pkrvars.hcl Dateien"
+regex = '''(?i)(vsphere_password|build_password|vid_smb_password|domain_join_password)\s*=\s*"[^"]{4,}"'''
+path = '''\.pkrvars\.hcl$'''
+# Ausnahme: leere Strings und explizite Platzhalter
+[[rules.allowlists]]
+regexes = [
+  '''=\s*""''',
+  '''(?i)(placeholder|changeme|your[-_]?password)''',
+]

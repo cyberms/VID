@@ -91,20 +91,20 @@ communicator_port    = 5985
 communicator_timeout = "12h"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Provisioner Settings – Vendor Independence Day (VID) Layer-Zuordnung
+// Provisioner Settings – Vendor Independence Day (VID) Schicht-Zuordnung
 // ─────────────────────────────────────────────────────────────────────────────
 
-// [VID Layer 5 – W11 OS] Broker-agnostische OS-Baseline (läuft vor allen Vendor-Tools)
+// [VID Schicht 5 – W11 OS] Broker-agnostische OS-Baseline (läuft vor allen Vendor-Tools)
 scripts_layer5 = [
   "scripts/windows/windows-prepare.ps1"
 ]
 
-// [VID Layer 6 – Drivers]  VMware Tools: Einbindung via iso_paths (sources.pkrvars.hcl)
+// [VID Schicht 6 – Drivers]  VMware Tools: Einbindung via iso_paths (sources.pkrvars.hcl)
 //                          Kein separates Skript nötig – autounattend.xml ruft windows-vmtools.ps1 auf
-// [VID Layer 7a – Broker]  Citrix VDA: windows-citrix-vda.ps1 (windows.pkr.hcl Step 7)
-// [VID Layer 7a+7b – Opt]  windows-citrix-optimize.ps1       (windows.pkr.hcl Step 11)
-// [VID Layer 7 – Finalize] windows-citrix-mcs-prep.ps1       (windows.pkr.hcl Step 12)
-// [VID Layer 8 – DEX]      windows-dex-agent.ps1             (später, noch deaktiviert)
+// [VID Schicht 7a – Broker]  Citrix VDA: windows-citrix-vda.ps1 (windows.pkr.hcl Step 7)
+// [VID Schicht 7a+7b – Opt]  windows-citrix-optimize.ps1       (windows.pkr.hcl Step 11)
+// [VID Schicht 7 – Finalize] windows-citrix-mcs-prep.ps1       (windows.pkr.hcl Step 12)
+// [VID Schicht 8 – DEX]      windows-dex-agent.ps1             (später, noch deaktiviert)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VID Broker / Delivery Technology
@@ -152,7 +152,7 @@ vid_vda_include_mcs_io_driver    = true   // Citrix MCS IODriver                
 vid_vda_include_rendezvous       = true   // Citrix Rendezvous V2                  – direkter HDX-Pfad via Citrix Gateway (Cloud Connector entlastet)
 vid_vda_include_websocket        = true   // Citrix Web Socket VDA Registration Tool – HTML5 Workspace / StoreFront Browser-Zugriff
 vid_vda_include_upgrade_agent    = false  // Citrix VDA Upgrade Agent              – automatische VDA-Upgrades aus Citrix Cloud; bei MCS: Image-Rebuild bevorzugt
-vid_vda_include_upl              = false  // User personalization layer            – nur bei Citrix App Layering erforderlich
+vid_vda_include_upl              = false  // User personalization layer            – nicht im Einsatz (kein App Layering)
 
 // Inline-Befehl: Event Logs leeren am Ende der OS-Baseline-Phase (vor VDA)
 inline = [

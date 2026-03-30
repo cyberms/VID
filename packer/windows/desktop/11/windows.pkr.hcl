@@ -3,32 +3,32 @@
     Microsoft Windows 11 Professional + Citrix VDA master image template
     using the Packer Builder for VMware vSphere (vsphere-iso).
 
-    Vendor Independence Day (VID) – Layer Classification:
-      Layer 5 – W11 OS Image    : Steps 1–6  (pure OS, hypervisor-agnostic)
-      Layer 6 – Drivers         : Step 2     (VMware Tools)
-      Layer 7 – Broker + Profile: Steps 7–10 (Citrix VDA, optimizations, MCS prep)
+    Vendor Independence Day (VID) – Schicht-Klassifizierung:
+      Schicht 5 – W11 OS Image    : Steps 1–6  (pure OS, hypervisor-agnostic)
+      Schicht 6 – Drivers         : Step 2     (VMware Tools)
+      Schicht 7 – Broker + Profile: Steps 7–10 (Citrix VDA, optimizations, MCS prep)
 
     Build Pipeline:
-      1. Windows 11 unattended installation (autounattend.xml)    [Layer 5]
-      2. VMware Tools installation (windows-vmtools.ps1)          [Layer 6]
-      3. WinRM initialization (windows-init.ps1)                  [Layer 5]
-      4. Windows OS baseline hardening (windows-prepare.ps1)      [Layer 5]
-      5. Windows Updates – pre-VDA                                [Layer 5]
-      6a. Domain Join (windows-domain-join.ps1) – optional        [Layer 5→7]
-      6b. Reboot after Domain Join                                [Layer 5→7]
-      7. Citrix VDA silent installation (windows-citrix-vda.ps1)  [Layer 7a – Broker Agent]
-      8. Reboot to complete VDA installation                      [Layer 7a]
-      9. Post-VDA Windows Updates                                 [Layer 7a]
-     10. Application installation (windows-apps-install.ps1)      [Layer 7c]
-     11. VDI optimizations (windows-citrix-optimize.ps1)          [Layer 7a+7b]
-     12. MCS master image cleanup (windows-citrix-mcs-prep.ps1)   [Layer 7]
+      1. Windows 11 unattended installation (autounattend.xml)    [Schicht 5]
+      2. VMware Tools installation (windows-vmtools.ps1)          [Schicht 6]
+      3. WinRM initialization (windows-init.ps1)                  [Schicht 5]
+      4. Windows OS baseline hardening (windows-prepare.ps1)      [Schicht 5]
+      5. Windows Updates – pre-VDA                                [Schicht 5]
+      6a. Domain Join (windows-domain-join.ps1) – optional        [Schicht 5→7]
+      6b. Reboot after Domain Join                                [Schicht 5→7]
+      7. Citrix VDA silent installation (windows-citrix-vda.ps1)  [Schicht 7a – Broker Agent]
+      8. Reboot to complete VDA installation                      [Schicht 7a]
+      9. Post-VDA Windows Updates                                 [Schicht 7a]
+     10. Application installation (windows-apps-install.ps1)      [Schicht 7c]
+     11. VDI optimizations (windows-citrix-optimize.ps1)          [Schicht 7a+7b]
+     12. MCS master image cleanup (windows-citrix-mcs-prep.ps1)   [Schicht 7]
      13. Template / Content Library export for Citrix MCS
 
     MCS Note: Sysprep is NOT required. MCS handles machine identity (SID,
     hostname, domain join) automatically during provisioning.
 
-    VID Principle: Layer 5 (pure W11 OS) is broker-agnostic.
-    Layer 7 (VDA + Profile Management) is swappable without OS rebuild.
+    VID Principle: Schicht 5 (pure W11 OS) is broker-agnostic.
+    Schicht 7 (VDA + Profile Management): nur das Schicht-7-Script muss geändert werden — kein Eingriff in Schicht-5- oder Schicht-6-Scripts.
 */
 
 //  BLOCK: packer
@@ -229,7 +229,7 @@ build {
     "source.vsphere-iso.windows-desktop",
   ]
 
-  // Step 1–4 [VID Layer 5 – W11 OS] + [Layer 6 – Drivers]: OS Baseline scripts
+  // Step 1–4 [VID Schicht 5 – W11 OS] + [Schicht 6 – Drivers]: OS Baseline scripts
   // windows-prepare.ps1: TLS hardening, Explorer settings, Passwort-Policy
   provisioner "powershell" {
     environment_vars = [
@@ -247,7 +247,7 @@ build {
     inline            = var.inline
   }
 
-  // Step 2c [VID Layer 7 – citrix-mcs only]: Initialise D: data disk
+  // Step 2c [VID Schicht 7 – citrix-mcs only]: Initialise D: data disk
   // Runs only when vid_broker = "citrix-mcs" (static storage block always adds the disk;
   // dynamic "storage" is not supported by the vsphere-iso provider).
   // Partitions (GPT) and formats (NTFS) the disk so scripts can write to D:\ during build.
@@ -262,7 +262,7 @@ build {
     }
   }
 
-  // Step 5 [VID Layer 5 – W11 OS]: Windows Updates (pre-VDA) – OS-level patches only
+  // Step 5 [VID Schicht 5 – W11 OS]: Windows Updates (pre-VDA) – OS-level patches only
   provisioner "windows-update" {
     pause_before    = "30s"
     search_criteria = "IsInstalled=0"
@@ -278,7 +278,7 @@ build {
 
   // ── LAYER 5→7 TRANSITION: Active Directory Domain Join ───────────────────────
 
-  // Step 6a [VID Layer 5→7]: Domain Join (optional, nur wenn domain_join_enabled = true)
+  // Step 6a [VID Schicht 5→7]: Domain Join (optional, nur wenn domain_join_enabled = true)
   // Erfolgt NACH Windows Updates und VOR der Citrix VDA Installation, damit der
   // VDA sich beim Delivery Controller mit dem korrekten Domänen-FQDN registriert.
   // Credentials werden aus build.pkrvars.hcl gelesen (nicht im Repo).
@@ -314,7 +314,7 @@ build {
   // VDA wird bewusst VOR den Apps installiert, damit der VDA bereits domain-joined
   // ist wenn er sich beim Delivery Controller registriert. Apps folgen danach.
 
-  // Step 7 [VID Layer 7a – Broker Agent]: Citrix VDA Installation
+  // Step 7 [VID Schicht 7a – Broker Agent]: Citrix VDA Installation
   // The VDA installer is pulled from the VID-Data SMB share at build time:
   //   \\<vid_smb_server>\VID-Data\citrix\vda\<vid_vda_installer>
   // SWAP THIS STEP to replace Citrix with AVD Agent, Horizon Agent, etc.
@@ -366,7 +366,7 @@ build {
     }
   }
 
-  // Step 8 [VID Layer 7a]: Reboot to complete VDA installation
+  // Step 8 [VID Schicht 7a]: Reboot to complete VDA installation
   dynamic "provisioner" {
     for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["windows-restart"]
@@ -376,7 +376,7 @@ build {
     }
   }
 
-  // Step 9 [VID Layer 7a]: Post-VDA Windows Updates
+  // Step 9 [VID Schicht 7a]: Post-VDA Windows Updates
   dynamic "provisioner" {
     for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["windows-update"]
@@ -396,7 +396,7 @@ build {
 
   // ── LAYER 7 STEPS (übersprungen wenn build_layer5_only = true) ──────────────
 
-  // Step 10a [VID Layer 7c – Apps]: apps-manifest.json auf VM hochladen
+  // Step 10a [VID Schicht 7c – Apps]: apps-manifest.json auf VM hochladen
   // Muss vor windows-apps-install.ps1 laufen, da das Script die Datei erwartet.
   dynamic "provisioner" {
     for_each = var.build_layer5_only ? [] : [1]
@@ -407,7 +407,7 @@ build {
     }
   }
 
-  // Step 10b [VID Layer 7c – Apps]: Applikationsinstallation
+  // Step 10b [VID Schicht 7c – Apps]: Applikationsinstallation
   // Wird in w11-full UND w11-vda ausgeführt – unabhängig von Citrix.
   // Apps werden aus apps-manifest.json gelesen (SMB oder lokaler Pfad).
   dynamic "provisioner" {
@@ -426,11 +426,11 @@ build {
     }
   }
 
-  // Step 10c [VID Layer 8 – DEX/Monitoring]: DEAKTIVIERT – kommt am Ende des Projekts
+  // Step 10c [VID Schicht 8 – DEX/Monitoring]: DEAKTIVIERT – kommt am Ende des Projekts
   // Skript vorhanden: scripts/windows/windows-dex-agent.ps1
   // Provisioner hier einkommentieren wenn DEX-Phase startet.
 
-  // Step 11 [VID Layer 7a+7b – Broker + Profile]: VDI Optimizations (Citrix)
+  // Step 11 [VID Schicht 7a+7b – Broker + Profile]: VDI Optimizations (Citrix)
   dynamic "provisioner" {
     for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["powershell"]
@@ -442,7 +442,7 @@ build {
     }
   }
 
-  // Step 12 [VID Layer 7 – Finalize]: MCS Master Image Preparation (cleanup, no sysprep!)
+  // Step 12 [VID Schicht 7 – Finalize]: MCS Master Image Preparation (cleanup, no sysprep!)
   dynamic "provisioner" {
     for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
     labels   = ["powershell"]
@@ -454,7 +454,7 @@ build {
     }
   }
 
-  // Step 13 [VID – Finalize]: Final event log clear (immer, außer Layer5-only)
+  // Step 13 [VID – Finalize]: Final event log clear (immer, außer Schicht5-only)
   dynamic "provisioner" {
     for_each = var.build_layer5_only ? [] : [1]
     labels   = ["powershell"]

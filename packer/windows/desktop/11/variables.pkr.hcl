@@ -314,16 +314,16 @@ variable "vmtools_iso_path" {
 // Central SMB repository for all VID build artefacts. Standard folder structure:
 //
 //   \\<server>\VID-Data\
-//     citrix\vda\          ← Citrix VDA installer (Layer 7a)
+//     citrix\vda\          ← Citrix VDA installer (Schicht 7a)
 //     citrix\optimize\     ← Optional: custom optimization scripts
 //     microsoft\avd\       ← AVD Agent (Phase 3)
 //     microsoft\fslogix\   ← FSLogix (Phase 2+)
 //     vmware\horizon\      ← Horizon Agent (optional)
-//     dex\controlup\       ← ControlUp Agent (Layer 8, later)
-//     dex\uberagent\       ← uberagent (Layer 8, later)
+//     dex\controlup\       ← ControlUp Agent (Schicht 8, later)
+//     dex\uberagent\       ← uberagent (Schicht 8, later)
 //     drivers\vmware\      ← Additional VMware drivers (if needed)
 //     drivers\xenserver\   ← Additional XenServer drivers (if needed)
-//     apps\                ← Business app installers (Layer 7c)
+//     apps\                ← Business app installers (Schicht 7c)
 //
 // The same structure is used for every customer – only the files differ.
 // The VM does NOT need to be domain-joined; credentials are passed explicitly.
@@ -507,7 +507,7 @@ variable "vid_vda_include_upgrade_agent" {
 variable "vid_vda_include_upl" {
   type        = bool
   default     = false
-  description = "Includes 'User personalization layer' (/includeadditional only, not installed by default). Required only for Citrix App Layering deployments. Do not enable unless App Layering is in use."
+  description = "Includes 'User personalization layer' (/includeadditional only, not installed by default). Nicht im Einsatz im VID-Projekt. Nur für Citrix App Layering erforderlich (wird nicht genutzt)."
 }
 
 // Option B – vSphere Datastore (legacy / vSphere-only fallback)
@@ -633,7 +633,7 @@ variable "scripts" {
 // VID Build-Modus
 variable "build_layer5_only" {
   type        = bool
-  description = "Nur Layer 5 bauen (OS + Updates, kein VDA). Für Tests des Golden Image ohne Broker-Agenten."
+  description = "Nur Schicht 5 bauen (OS + Updates, kein VDA). Für Tests des Golden Image ohne Broker-Agenten."
   default     = false
 }
 
@@ -644,7 +644,7 @@ variable "build_include_citrix" {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Active Directory Domain Join (VID Layer 5 → 7 Transition)
+// Active Directory Domain Join (VID Schicht 5 → 7 Transition)
 // Domain-Join erfolgt NACH Windows Updates und VOR der Citrix VDA Installation.
 // Credentials werden aus build.pkrvars.hcl gelesen (nicht im Repo gespeichert).
 //
@@ -690,14 +690,14 @@ variable "domain_join_computer_name" {
   default     = ""
 }
 
-// VID Layer 8 – DEX/Monitoring: für spätere Phase vorgesehen
+// VID Schicht 8 – DEX/Monitoring: für spätere Phase vorgesehen
 // Skript: scripts/windows/windows-dex-agent.ps1 (ControlUp / uberagent)
 // Variable und Provisioner hier einbauen wenn DEX-Phase startet.
 
-// Vendor Independence Day (VID) – Layer-annotated script variables
+// Vendor Independence Day (VID) – Schicht-annotiert script variables
 variable "scripts_layer5" {
   type        = list(string)
-  description = "[VID Layer 5 – W11 OS] Pure OS baseline scripts. Broker-agnostic and hypervisor-agnostic. Runs before any vendor tooling."
+  description = "[VID Schicht 5 – W11 OS] Pure OS baseline scripts. Broker-agnostic and hypervisor-agnostic. Runs before any vendor tooling."
   default     = []
 }
 
