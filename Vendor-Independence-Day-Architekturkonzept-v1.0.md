@@ -6,7 +6,7 @@ status: "Entwurf"
 date: "März 2026"
 audience: "Architekten, Infrastruktur-Engineers, IT-Management"
 hypervisors: "VMware vSphere · Citrix Hypervisor (XenServer)"
-dex: "ControlUp · uberagent"
+dex: "ControlUp · uberagent · Login Enterprise (VSI)"
 ---
 
 # Executive Summary
@@ -42,7 +42,7 @@ Vendor Independence Day beschreibt den Zustand einer IT-Infrastruktur, in der ke
 
 -   **Dokumentierter Austausch (Documented Exchangeability):** Für jede Schicht existiert ein alternativer Anbieter sowie ein schriftlicher Austauschplan.
 
--   **Infrastructure as Code (IaC):** Packer, Terraform und PowerShell beschreiben die gesamte Umgebung deklarativ.
+-   **Infrastructure as Code (IaC):** Packer, Terraform und PowerShell beschreiben die gesamte Umgebung deklarativ. Als alternative Image-Automation-Plattform wird **xoap** (xoap.io) evaluiert — xoap kapselt Packer-Templates und ermöglicht Multi-Platform-Builds (VMware, Azure, AWS, Nutanix) ohne tiefes Packer-Expertise.
 
 -   **Least Hypervisor Coupling:** Das Guest OS (Schicht 5) enthält keine hypervisorspezifischen Komponenten. Treiber werden in Schicht 6 isoliert.
 
@@ -76,15 +76,15 @@ Nicht im Scope von Phase 1:
 
 VID ist kein reines Technologieprojekt. Der Erfolg des Programms setzt organisatorische Rahmenbedingungen voraus, die vor dem ersten Build erfüllt sein müssen. Technik allein genügt nicht — Standards müssen gelebt, nicht nur beschlossen werden.
 
-**Standardisierung:** Einheitliche OS-Images ohne Ausnahmen. Keine abteilungsspezifischen Sonderpakete auf Layer-5-Ebene. Abweichungen werden ausschließlich in höheren Schichten (L7+) abgebildet.
+**Standardisierung:** Einheitliche OS-Images ohne Ausnahmen. Keine abteilungsspezifischen Sonderpakete auf Schicht-5-Ebene. Abweichungen werden ausschließlich in höheren Schichten (Schicht 7+) abgebildet.
 
 **Vollautomatisierung:** Kein manuelles Golding. Jede Änderung am Image läuft durch die Packer-Pipeline — reproduzierbar, versioniert und auditierbar. Manuelle Eingriffe in das Master-Image sind nicht erlaubt.
 
-**Strikte Schichtentrennung:** OS (L5), Treiber (L6) und Broker-Komponenten (L7) werden nie auf derselben Ebene gemischt. Das Ziel ist, einzelne Layer updaten zu können, ohne einen vollständigen OS-Rebuild auszulösen.
+**Strikte Schichtentrennung:** OS (Schicht 5), Treiber (Schicht 6) und Broker-Komponenten (Schicht 7) werden nie in denselben Scripts oder Konfigurationen vermischt. Packer baut zwar immer die gesamte Pipeline durch — der Wert der Trennung liegt jedoch darin, dass eine Änderung in einer Schicht (z.B. Broker-Wechsel Schicht 7: Citrix VDA → AVD Agent) keine Anpassung der anderen Schicht-Scripts erfordert. Jede Schicht hat exakt eine Verantwortung und einen klaren Owner.
 
 **Zentrales Software-Repository:** Alle Installer, Konfigurationsdateien und Tools liegen zentral im VID-Data-Share. Kein lokales Caching auf Build-Maschinen — der Share ist die einzige zuverlässige Quelle (Single Source of Truth).
 
-**Klare Governance:** Für jeden Layer ist ein verantwortlicher Owner definiert. Änderungen am Image sind nur durch einen dokumentierten, nachvollziehbaren Prozess erlaubt. Ad-hoc-Patching und direkte VM-Modifikationen sind ausgeschlossen.
+**Klare Governance:** Für jede Schicht ist ein verantwortlicher Owner definiert. Änderungen am Image sind nur durch einen dokumentierten, nachvollziehbaren Prozess erlaubt. Ad-hoc-Patching und direkte VM-Modifikationen sind ausgeschlossen.
 
 **Pilot vor Rollout:** Jedes neue Image wird zuerst in einer dedizierten Pilot-Gruppe validiert, bevor es auf die Gesamtflotte ausgerollt wird. Eine Rückfalloption via vSphere-Snapshot des vorherigen Master-Images muss zum Zeitpunkt des Rollouts stets verfügbar sein.
 
@@ -475,6 +475,30 @@ msiexec /i uberagentESA.msi /quiet /norestart
   **Empfehlung VID**         Primär für Ops-Teams (Echtzeit-Reaktion)   Primär für Analytics (Trend, Security)
 
 > **EMPFEHLUNG** Beide Tools schließen sich nicht aus. ControlUp für operatives Echtzeit-Monitoring und proaktive Remediation, uberagent für historische Trendanalyse und Security-Visibility. Im VID-Kontext werden beide als Layer-8-Agenten im Image installiert und können unabhängig voneinander aktiviert, deaktiviert oder ersetzt werden.
+
+## 8.4a Login Enterprise (Login VSI) — Image-Validierung gegen Baseline
+
+**Login Enterprise** (loginvsi.com) ist eine automatisierte Test- und Validierungsplattform für VDI- und DaaS-Umgebungen. Im VID-Kontext dient Login Enterprise nicht als dauerhafter Monitoring-Agent im Image, sondern als **Qualitätssicherungswerkzeug**: Jedes neue Packer-Image wird nach dem Build gegen eine definierte Baseline getestet, bevor es in die Produktion ausgerollt wird.
+
+**Kernfunktion im VID-Workflow:**
+
+-   **Baseline-EUX-Score:** Nach jedem erfolgreichen Build wird ein automatisierter Lasttest durchgeführt. Der gemessene EUX-Score (End User Experience Score) wird als Baseline gespeichert.
+
+-   **Regressionstest:** Bei Änderungen an Schicht 5, 6 oder 7 wird das neue Image automatisch gegen die Baseline getestet. Eine signifikante Verschlechterung des EUX-Scores blockiert den Rollout.
+
+-   **VSImax:** Maximale Anzahl gleichzeitiger VDI-Sessions ohne spürbare Performance-Degradation — wichtiger Kapazitätsplanungsparameter.
+
+-   **Hypervisor-Vergleich:** Login Enterprise kann VMware- und XenServer-Builds direkt vergleichen und Performance-Unterschiede zwischen den Hypervisoren messen.
+
+**VID-Prinzip:** Login Enterprise ist vollständig unabhängig von den VID-Schichten. Es greift von außen auf die bereitgestellten VMs zu — kein Agent im Master Image erforderlich.
+
+  **Kriterium**        **Login Enterprise**
+  -------------------- ---------------------------------------------------------
+  **Einsatzzweck**     Image-Qualitätssicherung, Kapazitätsplanung, Regression
+  **Platzierung**      Extern (kein Image-Agent) — Test-Infrastructure
+  **Integration**      Nach Packer-Build, vor MCS-Rollout
+  **Metrik**           EUX Score, VSImax, Logon-Dauer, App-Antwortzeiten
+  **VID-Austausch**    Tool unabhängig von Image-Inhalten
 
 ## 8.5 Voraussetzungen (Vorher-Modell Layer 8)
 
@@ -919,3 +943,35 @@ Endgültige, verbindliche Zuordnung der Komponenten zu VID-Schichten:
   **VDA Konfiguration (Controller)**     4 -- AD/GPO       Citrix ADMX-GPO                   GPO (niemals im Image)
 
 > **VID ENTSCHEIDUNGSREGEL** Merksatz für alle Implementierungsentscheidungen: \'Ist es ein Treiber? → Schicht 6. Ist es ein Broker- oder Profil-Agent? → Schicht 7. Ist es eine Umgebungs-Konfiguration mit Pfaden, IPs oder Servernamen? → Schicht 4 (GPO). Ist es das Betriebssystem selbst? → Schicht 5.\'
+
+# 14 Alternative Image-Automation: xoap
+
+## 14.1 Überblick xoap
+
+**xoap** (xoap.io) ist eine kommerzielle Image-Automation-Plattform, die als Alternative oder Ergänzung zur aktuellen Packer-basierten Pipeline evaluiert wird. xoap kapselt Packer-Templates und bietet eine GUI-gestützte Verwaltung von Golden-Image-Pipelines — ohne tiefes Packer- oder Ansible-Know-how.
+
+Kernfunktionen:
+
+-   **Multi-Platform-Builds:** VMware vSphere, Microsoft Azure, AWS, Nutanix, GCP — ein Image, viele Zielsysteme
+
+-   **Open-Source-Templates:** xoap pflegt öffentliche Packer-Templates für Windows 11 / Windows Server auf GitHub (`xoap-io/xoap-image-management-templates`)
+
+-   **Software-Integration:** PowerShell PSADT, Winget, Chocolatey, PowerShell DSC, Ansible Playbooks — identischer Ansatz zu VID Phase 1
+
+-   **Versionierung & Audit:** Zentrales Repository, reproduzierbare Builds, auditierbare Änderungshistorie
+
+## 14.2 Bewertung im VID-Kontext
+
+  **Kriterium**              **Packer (aktuell)**                   **xoap (Evaluation)**
+  -------------------------- -------------------------------------- ------------------------------------------
+  **IaC-Approach**           HCL-Code, vollständige Kontrolle       GUI + HCL, abstrahierte Komplexität
+  **Multi-Platform**         Manuell je Builder konfiguriert        Nativ unterstützt
+  **Scriptintegration**      PowerShell, Ansible                    PowerShell, DSC, Chocolatey, Ansible
+  **Open Source**            HashiCorp Packer (BSL-Lizenz)          Templates Open Source, Plattform kommerziell
+  **VID-Schichttrennung**    Vollständig umsetzbar                  Vollständig umsetzbar
+  **Einstiegshürde**         Hoch (HCL, Packer-Expertise)           Niedrig (GUI-geführt)
+
+## 14.3 Migrationspfad
+
+Ein Wechsel zu xoap erfordert keine Änderung an den VID-Schichten oder den PowerShell-Scripts. xoap nutzt dieselbe Script-Logik (Schicht 5--7) — nur der Build-Orchestrator ändert sich. Die VID-Kernprinzipien (Schichtentrennung, Vollautomatisierung, IaC) bleiben vollständig erhalten.
+
