@@ -1,5 +1,17 @@
 # Release History
 
+## v1.4 – 2026-03-30
+
+### Fixes
+- **`11-xenserver/variables.pkr.hcl`**: Semikolons durch HCL-konforme Multi-Line-Blöcke ersetzt (behebt `Invalid character ";"` Fehler bei `packer fmt`)
+
+### Tooling
+- **`validate.sh`**: `packer init` wird jetzt automatisch pro Template vor `packer validate` ausgeführt – kein manueller Init-Schritt mehr nötig
+- **`validate.sh`**: Hypervisor-Trennung eingeführt – XenServer-Templates erhalten eigene Dummy-Variablen ohne vSphere-var-files (verhindert Warning-Flut)
+- **`validate.sh`**: `11-xenserver` vorerst aus TARGETS auskommentiert (WIP – XenServer-Plugin-Setup ausstehend)
+
+---
+
 ## v1.3 – 2026-03-03
 
 ### Fixes
