@@ -1,9 +1,11 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "VID Layer 7 - Application Manifest for Windows 11 VDA Images",
   "vid_layer": 7,
   "hypervisor_independent": true,
-  "last_updated": "2026-03-02",
+  "last_updated": "2026-03-30",
+  "installer_priority": ["psadt", "winget", "chocolatey"],
+  "psadt_share_base": "apps",
   "groups": [
     {
       "name": "Runtime Environments",
@@ -13,18 +15,21 @@
         {
           "name": "Microsoft Visual C++ Redistributable 2022 (x64)",
           "winget_id": "Microsoft.VCRedist.2022.x64",
+          "winget_version": "14.42.34226.0",
           "chocolatey_id": "vcredist140",
           "enabled": true
         },
         {
           "name": "Microsoft Visual C++ Redistributable 2022 (x86)",
           "winget_id": "Microsoft.VCRedist.2022.x86",
+          "winget_version": "14.42.34226.0",
           "chocolatey_id": "vcredist140",
           "enabled": true
         },
         {
           "name": ".NET 8 Runtime",
           "winget_id": "Microsoft.DotNet.Runtime.8",
+          "winget_version": "8.0.14",
           "chocolatey_id": "dotnet-runtime",
           "enabled": true
         }
@@ -38,25 +43,31 @@
         {
           "name": "Microsoft 365 Apps (Office)",
           "winget_id": "Microsoft.Office",
+          "winget_version": null,
           "chocolatey_id": "microsoft365",
           "enabled": false,
           "notes": "Enable if deploying M365 Apps via image"
         },
         {
           "name": "7-Zip",
+          "psadt_path": "7-Zip\\24.08.0",
           "winget_id": "7zip.7zip",
+          "winget_version": "24.08.0",
           "chocolatey_id": "7zip",
           "enabled": true
         },
         {
           "name": "Adobe Acrobat Reader DC",
+          "psadt_path": "AdobeReader\\24.5.0",
           "winget_id": "Adobe.Acrobat.Reader.64-bit",
+          "winget_version": "24.5.20320.0",
           "chocolatey_id": "adobereader",
           "enabled": true
         },
         {
           "name": "Notepad++",
           "winget_id": "Notepad++.Notepad++",
+          "winget_version": "8.7.5",
           "chocolatey_id": "notepadplusplus",
           "enabled": true
         }
@@ -70,6 +81,7 @@
         {
           "name": "Microsoft Edge (Enterprise)",
           "winget_id": "Microsoft.Edge",
+          "winget_version": null,
           "chocolatey_id": "microsoft-edge",
           "enabled": true,
           "notes": "Usually pre-installed on W11, included for version control"
@@ -77,6 +89,7 @@
         {
           "name": "Google Chrome (Enterprise)",
           "winget_id": "Google.Chrome.EXE",
+          "winget_version": null,
           "chocolatey_id": "googlechromestandaloneenterprise64",
           "enabled": false,
           "notes": "Enable if Chrome is required alongside Edge"
@@ -91,6 +104,7 @@
         {
           "name": "Npcap (for network troubleshooting)",
           "winget_id": "Npcap.Npcap",
+          "winget_version": null,
           "chocolatey_id": "npcap",
           "enabled": false,
           "notes": "Enable only if network capture tools are needed"
@@ -105,12 +119,14 @@
         {
           "name": "Sysinternals Suite",
           "winget_id": "Microsoft.Sysinternals.Suite",
+          "winget_version": null,
           "chocolatey_id": "sysinternals",
           "enabled": false
         },
         {
           "name": "WinSCP",
           "winget_id": "WinSCP.WinSCP",
+          "winget_version": "6.3.7",
           "chocolatey_id": "winscp",
           "enabled": false
         }

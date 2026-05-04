@@ -1,0 +1,6 @@
+# Installer-Binaries nicht in Git (zu groß, kommen vom VID-Data SMB-Share)
+packages/*/Files/
+packages/*/*/Files/
+
+# macOS
+.DS_Store

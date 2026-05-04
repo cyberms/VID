@@ -1,31 +1,31 @@
 <#
     .DESCRIPTION
     Vendor Independence Day (VID) - Layer 7: Application Installation Framework
-    
-    Reads an application manifest (apps-manifest.json) and installs applications
-    using Winget (preferred) or Chocolatey (fallback) or direct download.
-    
-    Layer 7 is independent of Layer 5 (OS) and Layer 6 (Drivers).
-    The same manifest can be applied to any VID-compliant Windows 11 image.
-    
-    Usage: Can be run:
-      - During Packer image build (applications baked into image)
-      - At VM first boot (applications installed post-provisioning)
-      - Via Citrix DaaS provisioning script
-      - Standalone on any Windows 11 machine
-    
+
+    Installiert Applikationen anhand des apps-manifest.json.
+    Installer-Prioritaet: PSADT -> Winget (pinned) -> Chocolatey
+
+    PSADT-Pakete werden vom VID-Data SMB-Share geladen, mit dem PSADT-Framework
+    zusammengefuehrt und im DeployMode Silent ausgefuehrt.
+
     Manifest: packer/scripts/windows/apps-manifest.json
+    PSADT:    packer/scripts/windows/psadt/
 #>
 
 param(
-    [string]$ManifestPath = "$PSScriptRoot\apps-manifest.json",
+    [string]$ManifestPath   = "$PSScriptRoot\apps-manifest.json",
+    [string]$PsadtFramework = "$PSScriptRoot\psadt\_framework",
+    [string]$PsadtPackages  = "$PSScriptRoot\psadt\packages",
+    [string]$SmbBase        = "\\$env:vid_smb_server\$env:vid_smb_share\apps",
     [switch]$WingetOnly,
     [switch]$ChocolateyOnly,
+    [switch]$PsadtOnly,
     [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
-$LogFile = "C:\Windows\Temp\vid-apps-install.log"
+$LogFile = "C:\Windows\Logs\VID\vid-apps-install.log"
+New-Item -ItemType Directory -Path (Split-Path $LogFile) -Force -ErrorAction SilentlyContinue | Out-Null
 
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
@@ -35,154 +35,157 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $entry
 }
 
-function Install-Winget {
-    Write-Log "  Checking Winget availability..."
-    $winget = Get-Command "winget" -ErrorAction SilentlyContinue
-    if ($winget) {
-        Write-Log "  Winget found: $($winget.Source)"
-        return $true
-    }
-    Write-Log "  Winget not found. Attempting installation via AppX..." "WARN"
+function Invoke-PsadtPackage {
+    param([hashtable]$App, [string]$PsadtPath)
+    Write-Log "  [PSADT] $($App.name) - Paketpfad: $PsadtPath"
+    $tempDir = Join-Path $env:TEMP "VID_PSADT_$($App.name -replace '\s','_')"
+    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
     try {
-        # Install WinGet via Microsoft.UI.Xaml dependency
-        $progPreference = $ProgressPreference
-        $ProgressPreference = 'SilentlyContinue'
-        
-        Invoke-WebRequest -Uri "https://aka.ms/getwinget" -OutFile "C:\Windows\Temp\winget.msixbundle"
-        Add-AppxPackage -Path "C:\Windows\Temp\winget.msixbundle" -ErrorAction Stop
-        $ProgressPreference = $progPreference
-        Write-Log "  Winget installed successfully."
-        return $true
-    }
-    catch {
-        Write-Log "  Winget installation failed: $($_.Exception.Message)" "WARN"
-        return $false
+        Copy-Item -Path "$PsadtFramework\*" -Destination $tempDir -Recurse -Force
+        Write-Log "  [PSADT] Framework kopiert."
+        $localPackage = Join-Path $PsadtPackages $PsadtPath
+        if (Test-Path "$localPackage\Deploy-Application.ps1") {
+            Copy-Item -Path "$localPackage\Deploy-Application.ps1" -Destination $tempDir -Force
+            if (Test-Path "$localPackage\Files") { Copy-Item -Path "$localPackage\Files" -Destination $tempDir -Recurse -Force }
+            Write-Log "  [PSADT] Paket aus lokalem Pfad: $localPackage"
+        } elseif (Test-Path "$SmbBase\$PsadtPath\Deploy-Application.ps1") {
+            Copy-Item -Path "$SmbBase\$PsadtPath\Deploy-Application.ps1" -Destination $tempDir -Force
+            if (Test-Path "$SmbBase\$PsadtPath\Files") { Copy-Item -Path "$SmbBase\$PsadtPath\Files" -Destination $tempDir -Recurse -Force }
+            Write-Log "  [PSADT] Paket vom SMB-Share: $SmbBase\$PsadtPath"
+        } else {
+            Write-Log "  [PSADT] Kein Paket gefunden." "WARN"
+            return $false
+        }
+        if ($DryRun) { Write-Log "  [DryRun] Deploy-Application.ps1 -DeploymentType Install -DeployMode Silent"; return $true }
+        $psadtScript = Join-Path $tempDir "Deploy-Application.ps1"
+        $proc = Start-Process "powershell.exe" `
+            -ArgumentList "-ExecutionPolicy Bypass -NonInteractive -File `"$psadtScript`" -DeploymentType Install -DeployMode Silent" `
+            -Wait -PassThru -WindowStyle Hidden
+        Write-Log "  [PSADT] Exit Code: $($proc.ExitCode)"
+        return $proc.ExitCode -in @(0, 3010)
+    } finally {
+        Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
-function Install-Chocolatey {
-    Write-Log "  Checking Chocolatey availability..."
-    if (Get-Command "choco" -ErrorAction SilentlyContinue) {
-        Write-Log "  Chocolatey already installed."
-        return $true
-    }
-    Write-Log "  Installing Chocolatey..."
+function Install-Winget {
+    Write-Log "  Pruefe Winget..."
+    if (Get-Command "winget" -ErrorAction SilentlyContinue) { Write-Log "  Winget verfuegbar."; return $true }
+    Write-Log "  Winget nicht gefunden - versuche Installation..." "WARN"
     try {
-        Set-ExecutionPolicy Bypass -Scope Process -Force
-        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-        Write-Log "  Chocolatey installed successfully."
-        return $true
-    }
-    catch {
-        Write-Log "  Chocolatey installation failed: $($_.Exception.Message)" "WARN"
-        return $false
-    }
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri "https://aka.ms/getwinget" -OutFile "$env:TEMP\winget.msixbundle"
+        Add-AppxPackage -Path "$env:TEMP\winget.msixbundle" -ErrorAction Stop
+        Write-Log "  Winget installiert."; return $true
+    } catch { Write-Log "  Winget-Installation fehlgeschlagen: $($_.Exception.Message)" "WARN"; return $false }
 }
 
 function Install-AppViaWinget {
     param([hashtable]$App)
-    $id = $App.winget_id
-    Write-Log "  [Winget] Installing: $($App.name) ($id)"
-    if ($DryRun) { Write-Log "  [DryRun] winget install --id $id --silent --accept-package-agreements --accept-source-agreements"; return $true }
-    
-    $result = & winget install --id $id --silent --accept-package-agreements --accept-source-agreements 2>&1
+    $id = $App.winget_id; $version = $App.winget_version
+    Write-Log "  [Winget] $($App.name) ($id$(if ($version) { " v$version" }))"
+    if ($DryRun) { Write-Log "  [DryRun] winget install --id $id$(if ($version) { " --version $version" }) --silent"; return $true }
+    $args = @("install","--id",$id,"--silent","--accept-package-agreements","--accept-source-agreements")
+    if ($version) { $args += @("--version",$version) }
+    & winget @args 2>&1 | Out-Null
     $exitCode = $LASTEXITCODE
-    Write-Log "  [Winget] Exit code: $exitCode"
-    return $exitCode -in @(0, -1978335189, -1978335157) # 0=success, -1978335189=already installed, -1978335157=no applicable update (0x8A15004B)
+    Write-Log "  [Winget] Exit Code: $exitCode"
+    return $exitCode -in @(0, -1978335189, -1978335157)
+}
+
+function Install-Chocolatey {
+    Write-Log "  Pruefe Chocolatey..."
+    if (Get-Command "choco" -ErrorAction SilentlyContinue) { Write-Log "  Chocolatey verfuegbar."; return $true }
+    Write-Log "  Installiere Chocolatey..."
+    try {
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+        Write-Log "  Chocolatey installiert."; return $true
+    } catch { Write-Log "  Chocolatey-Installation fehlgeschlagen: $($_.Exception.Message)" "WARN"; return $false }
 }
 
 function Install-AppViaChocolatey {
     param([hashtable]$App)
     $id = $App.chocolatey_id
-    Write-Log "  [Choco] Installing: $($App.name) ($id)"
+    Write-Log "  [Choco] $($App.name) ($id)"
     if ($DryRun) { Write-Log "  [DryRun] choco install $id -y --no-progress"; return $true }
-    
-    $result = & choco install $id -y --no-progress 2>&1
+    & choco install $id -y --no-progress 2>&1 | Out-Null
     $exitCode = $LASTEXITCODE
-    Write-Log "  [Choco] Exit code: $exitCode. Output: $(($result | Select-Object -Last 3) -join '; ')"
-    return $exitCode -in @(0, 3010) # 0=success, 3010=success+reboot required
+    Write-Log "  [Choco] Exit Code: $exitCode"
+    return $exitCode -in @(0, 3010)
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Main
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Main ─────────────────────────────────────────────────────────────────────
 
-Write-Log "=== VID Layer 7: Application Installation Framework ==="
-Write-Log "  Manifest: $ManifestPath"
-Write-Log "  DryRun:   $DryRun"
+Write-Log "========================================================"
+Write-Log "=== VID Layer 7: Application Installation Framework  ==="
+Write-Log "========================================================"
+Write-Log "  Manifest  : $ManifestPath"
+Write-Log "  Prioritaet: PSADT -> Winget (pinned) -> Chocolatey"
+Write-Log "  DryRun    : $DryRun"
 
-# Load manifest
-if (-not (Test-Path $ManifestPath)) {
-    Write-Log "  ERROR: Manifest not found: $ManifestPath" "ERROR"
-    throw "App manifest not found: $ManifestPath"
-}
+if (-not (Test-Path $ManifestPath)) { throw "App manifest not found: $ManifestPath" }
 
 $manifest = Get-Content $ManifestPath | ConvertFrom-Json
-Write-Log "  Manifest version: $($manifest.version)"
-Write-Log "  Application groups: $($manifest.groups.Count)"
+Write-Log "  Manifest Version : $($manifest.version)"
 
-# Initialize package managers
-$wingetAvailable = Install-Winget
-$chocoAvailable  = Install-Chocolatey
+$wingetAvailable = if (-not $ChocolateyOnly -and -not $PsadtOnly) { Install-Winget } else { $false }
+$chocoAvailable  = if (-not $WingetOnly -and -not $PsadtOnly)     { Install-Chocolatey } else { $false }
+$psadtAvailable  = Test-Path "$PsadtFramework\AppDeployToolkit\AppDeployToolkitMain.ps1"
+Write-Log "  PSADT Framework: $(if ($psadtAvailable) { 'verfuegbar' } else { 'nicht gefunden - PSADT wird uebersprungen' })"
 
-# Write VID Layer 7 registry info
-$vidRegPath = "HKLM:\SOFTWARE\VendorIndependenceDay"
-if (-not (Test-Path $vidRegPath)) { New-Item $vidRegPath -Force | Out-Null }
-Set-ItemProperty $vidRegPath "AppManifestVersion" $manifest.version -Type String
+$vidReg = "HKLM:\SOFTWARE\VendorIndependenceDay"
+if (-not (Test-Path $vidReg)) { New-Item $vidReg -Force | Out-Null }
+Set-ItemProperty $vidReg "AppManifestVersion" $manifest.version -Type String
 
-# Process each application group
-$totalInstalled = 0
-$totalFailed    = 0
+$totalInstalled = 0; $totalFailed = 0
 
 foreach ($group in $manifest.groups) {
-    Write-Log ""
-    Write-Log "--- Group: $($group.name) ---"
-    
-    if ($group.enabled -eq $false) {
-        Write-Log "  Group disabled, skipping."
-        continue
-    }
+    Write-Log ""; Write-Log "--- Gruppe: $($group.name) ---"
+    if ($group.enabled -eq $false) { Write-Log "  Gruppe deaktiviert."; continue }
 
     foreach ($appObj in $group.apps) {
         $app = @{
             name           = $appObj.name
+            psadt_path     = $appObj.psadt_path
             winget_id      = $appObj.winget_id
+            winget_version = $appObj.winget_version
             chocolatey_id  = $appObj.chocolatey_id
             enabled        = if ($null -ne $appObj.enabled) { $appObj.enabled } else { $true }
         }
+        if ($app.enabled -eq $false) { Write-Log "  SKIP: $($app.name)"; continue }
 
-        if ($app.enabled -eq $false) {
-            Write-Log "  SKIP (disabled): $($app.name)"
-            continue
-        }
-
-        Write-Log "  Installing: $($app.name)"
+        Write-Log ""; Write-Log "  -> $($app.name)"
         $success = $false
 
-        if ($wingetAvailable -and $app.winget_id -and -not $ChocolateyOnly) {
-            $success = Install-AppViaWinget -App $app
-        }
-        if (-not $success -and $chocoAvailable -and $app.chocolatey_id -and -not $WingetOnly) {
-            $success = Install-AppViaChocolatey -App $app
+        # 1. PSADT
+        if (-not $WingetOnly -and -not $ChocolateyOnly -and $psadtAvailable -and $app.psadt_path) {
+            $success = Invoke-PsadtPackage -App $app -PsadtPath $app.psadt_path
+            if ($success) { Write-Log "  OK PSADT: $($app.name)" }
+            else          { Write-Log "  PSADT fehlgeschlagen - versuche Winget..." "WARN" }
         }
 
-        if ($success) {
-            Write-Log "  SUCCESS: $($app.name)"
-            $totalInstalled++
-        } else {
-            Write-Log "  FAILED: $($app.name)" "WARN"
-            $totalFailed++
+        # 2. Winget (pinned)
+        if (-not $success -and $wingetAvailable -and $app.winget_id -and -not $ChocolateyOnly -and -not $PsadtOnly) {
+            $success = Install-AppViaWinget -App $app
+            if ($success) { Write-Log "  OK Winget: $($app.name)" }
+            else          { Write-Log "  Winget fehlgeschlagen - versuche Chocolatey..." "WARN" }
         }
+
+        # 3. Chocolatey
+        if (-not $success -and $chocoAvailable -and $app.chocolatey_id -and -not $WingetOnly -and -not $PsadtOnly) {
+            $success = Install-AppViaChocolatey -App $app
+            if ($success) { Write-Log "  OK Chocolatey: $($app.name)" }
+        }
+
+        if ($success) { $totalInstalled++ }
+        else { Write-Log "  FEHLGESCHLAGEN: $($app.name)" "WARN"; $totalFailed++ }
     }
 }
 
 Write-Log ""
-Write-Log "=== VID Layer 7: Application Installation Summary ==="
-Write-Log "  Installed: $totalInstalled"
-Write-Log "  Failed:    $totalFailed"
-Write-Log "  Log: $LogFile"
+Write-Log "=== Zusammenfassung: Installiert=$totalInstalled  Fehlgeschlagen=$totalFailed ==="
+Write-Log "    Log: $LogFile"
 
-# Explicit exit: prevents $LASTEXITCODE from the last external process (winget/choco)
-# leaking as the script exit code when PowerShell has no explicit exit statement.
 exit $(if ($totalFailed -gt 0) { 1 } else { 0 })

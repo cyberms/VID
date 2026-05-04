@@ -1,5 +1,22 @@
 # Release History
 
+## v1.5 – 2026-03-30
+
+### Neue Features
+- **PSADT-Framework**: XOAP PSADT Framework Template 3.9.2 als Grundlage für VID App-Pakete (`psadt/_framework/`)
+- **PSADT-Template**: VID-angepasstes `Deploy-Application.ps1` Template für neue Pakete (`psadt/_template/`)
+- **PSADT-Pakete**: Beispielpakete für 7-Zip 24.08.0 und Adobe Reader 24.5.0 (`psadt/packages/`)
+- **VID-Extensions**: `AppDeployToolkitExtensions.ps1` schreibt App-Metadaten nach `HKLM:\SOFTWARE\VendorIndependenceDay\InstalledApps\`
+- **Installer-Priorität**: PSADT → Winget (pinned) → Chocolatey
+- **Versionspinning**: `winget_version` in `apps-manifest.json` (v2.0.0) für reproduzierbare Builds
+
+### Geändert
+- **`apps-manifest.json`**: Version 2.0.0 – neues Feld `psadt_path` und `winget_version` pro App
+- **`windows-apps-install.ps1`**: Orchestrator komplett überarbeitet; unterstützt jetzt PSADT als primären Installer; PSADT-Pakete werden in Temp-Verzeichnis zusammengeführt (Framework + Deploy-Script + Files) und silent ausgeführt
+- **Log-Pfad**: Neu unter `C:\Windows\Logs\VID\vid-apps-install.log`
+
+---
+
 ## v1.4 – 2026-03-30
 
 ### Fixes
