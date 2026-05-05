@@ -1,34 +1,39 @@
 /*
     DESCRIPTION:
-    Microsoft Windows 11 Professional + Citrix VDA master image template
+    Microsoft Windows 11 – Multi-Broker VDI master image template
     using the Packer Builder for VMware vSphere (vsphere-iso).
+    Unterstützte Broker: citrix-mcs, citrix-pvs, horizon, none
 
     Vendor Independence Day (VID) – Schicht-Klassifizierung:
-      Schicht 5 – W11 OS Image    : Steps 1–6  (pure OS, hypervisor-agnostic)
-      Schicht 6 – Drivers         : Step 2     (VMware Tools)
-      Schicht 7 – Broker + Profile: Steps 7–10 (Citrix VDA, optimizations, MCS prep)
+      Schicht 5 – W11 OS Image    : Steps 1–6   (pure OS, hypervisor-agnostic)
+      Schicht 6 – Drivers         : Step 2      (VMware Tools)
+      Schicht 7 – Broker + Profile: Steps 7–13  (Agent, Optimize, Finalize)
 
     Build Pipeline:
-      1. Windows 11 unattended installation (autounattend.xml)    [Schicht 5]
-      2. VMware Tools installation (windows-vmtools.ps1)          [Schicht 6]
-      3. WinRM initialization (windows-init.ps1)                  [Schicht 5]
-      4. Windows OS baseline hardening (windows-prepare.ps1)      [Schicht 5]
-      5. Windows Updates – pre-VDA                                [Schicht 5]
-      6a. Domain Join (windows-domain-join.ps1) – optional        [Schicht 5→7]
-      6b. Reboot after Domain Join                                [Schicht 5→7]
-      7. Citrix VDA silent installation (windows-citrix-vda.ps1)  [Schicht 7a – Broker Agent]
-      8. Reboot to complete VDA installation                      [Schicht 7a]
-      9. Post-VDA Windows Updates                                 [Schicht 7a]
-     10. Application installation (windows-apps-install.ps1)      [Schicht 7c]
-     11. VDI optimizations (windows-citrix-optimize.ps1)          [Schicht 7a+7b]
-     12. MCS master image cleanup (windows-citrix-mcs-prep.ps1)   [Schicht 7]
-     13. Template / Content Library export for Citrix MCS
+      1. Windows 11 unattended installation (autounattend.xml)             [Schicht 5]
+      2. VMware Tools installation (windows-vmtools.ps1)                   [Schicht 6]
+      3. WinRM initialization (windows-init.ps1)                           [Schicht 5]
+      4. Windows OS Baseline DSC (windows-dsc-apply.ps1)                   [Schicht 5]
+      5. Windows Updates – pre-Agent                                       [Schicht 5]
+      6a. Domain Join (windows-domain-join.ps1) – optional                 [Schicht 5→7]
+      6b. Reboot after Domain Join                                         [Schicht 5→7]
+      7a. Citrix VDA (windows-citrix-vda.ps1)          [vid_broker=citrix] [Schicht 7a]
+      7b. Horizon Agent (windows-horizon-agent.ps1)    [vid_broker=horizon] [Schicht 7a]
+      8.  Reboot nach Agent-Installation                                   [Schicht 7a]
+      9.  Post-Agent Windows Updates                                       [Schicht 7a]
+     10.  Application installation (windows-apps-install.ps1)              [Schicht 7c]
+     11.  Generic VDI Optimize (windows-vdi-optimize.ps1)    [ALL broker]  [Schicht 7b]
+     11a. Citrix-specific Optimize (windows-citrix-optimize.ps1) [citrix]  [Schicht 7b]
+     11b. Horizon-specific Optimize (windows-horizon-optimize.ps1) [horiz] [Schicht 7b]
+     12a. MCS/PVS Prep (windows-citrix-mcs-prep.ps1)         [citrix]      [Schicht 7]
+     12b. IC-Prep (windows-horizon-ic-prep.ps1)               [horizon]     [Schicht 7]
+     13.  Final event log clear + Temp cleanup                              [Finalize]
 
-    MCS Note: Sysprep is NOT required. MCS handles machine identity (SID,
-    hostname, domain join) automatically during provisioning.
+    MCS Note: Sysprep is NOT required for Citrix or Horizon.
+    MCS/IC handles machine identity (SID, hostname) during provisioning.
 
-    VID Principle: Schicht 5 (pure W11 OS) is broker-agnostic.
-    Schicht 7 (VDA + Profile Management): nur das Schicht-7-Script muss geändert werden — kein Eingriff in Schicht-5- oder Schicht-6-Scripts.
+    VID Principle: Schicht 5 (OS) + 7c (Apps) sind broker-agnostisch.
+    Schicht 7a/7b: nur die Broker-Scripts austauschen – kein Eingriff in Schicht 5/6.
 */
 
 //  BLOCK: packer
@@ -457,7 +462,24 @@ build {
   // Skript vorhanden: scripts/windows/windows-dex-agent.ps1
   // Provisioner hier einkommentieren wenn DEX-Phase startet.
 
-  // Step 11a [VID Schicht 7a+7b – Citrix]: VDI Optimierungen (Citrix CVAD Optimizer)
+  // Step 11 [VID Schicht 7b – ALL Broker]: Generische VDI Optimierungen (broker-agnostisch)
+  // Läuft für ALLE Broker außer "none" und build_layer5_only.
+  // Enthält: Power Plan, Services, Scheduled Tasks, Telemetrie, OneDrive,
+  //          Netzwerk, Storage, AppX, Visual/UI, Event Logs, Terminal Services, ...
+  dynamic "provisioner" {
+    for_each = !var.build_layer5_only && var.vid_broker != "none" ? [1] : []
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      environment_vars  = ["VID_BROKER=${var.vid_broker}"]
+      scripts           = ["${path.cwd}/scripts/windows/windows-vdi-optimize.ps1"]
+    }
+  }
+
+  // Step 11a [VID Schicht 7b – Citrix]: Citrix-spezifische Optimierungen
+  // Läuft NUR für Citrix (nach dem generischen Optimize-Script).
+  // Enthält: Defender Exclusions für Citrix-Verzeichnisse, CtxHook, EDT/UDT, HDX-Tweaks
   dynamic "provisioner" {
     for_each = !var.build_layer5_only && (var.vid_broker == "citrix-mcs" || var.vid_broker == "citrix-pvs") ? [1] : []
     labels   = ["powershell"]
@@ -469,7 +491,9 @@ build {
     }
   }
 
-  // Step 11b [VID Schicht 7a+7b – Horizon]: VDI Optimierungen (Horizon Optimization Tool)
+  // Step 11b [VID Schicht 7b – Horizon]: Horizon-spezifische Optimierungen
+  // Läuft NUR für Horizon (nach dem generischen Optimize-Script).
+  // Enthält: Blast Extreme Tweaks, OSOT-Referenz, Desktop Cleanup
   dynamic "provisioner" {
     for_each = !var.build_layer5_only && var.vid_broker == "horizon" ? [1] : []
     labels   = ["powershell"]

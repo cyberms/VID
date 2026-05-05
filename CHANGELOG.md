@@ -1,5 +1,45 @@
 # Release History
 
+## v1.8 – 2026-05-05
+
+### Neue Features – Broker-agnostische VDI Optimierungen
+
+- **Generic VDI Optimize**: `windows-vdi-optimize.ps1` – neues broker-agnostisches Script für **alle** Broker (citrix-mcs, citrix-pvs, horizon, avd, none)
+  - Power Plan, Page File, Services, Scheduled Tasks, Windows Update Policy
+  - Telemetrie & Datenschutz, OneDrive, Netzwerk (NIC, LSO, TCP, DNS)
+  - Storage/Filesystem, SmartScreen, Visual/UI, AppX Bloatware
+  - Event Log Sizing, WER, Zeitzone, Terminal Services, Startup Cleanup
+  - VID Sentinel: `HKLM:\SOFTWARE\VendorIndependenceDay\Optimization\VDIOptimizeApplied`
+
+### Geändert – Optimierungen aufgeteilt nach Schicht-Prinzip
+
+- **`windows-citrix-optimize.ps1`** – auf Citrix-spezifische Tweaks reduziert:
+  - Defender Exclusions für `%ProgramFiles%\Citrix`, `%ProgramData%\Citrix`, `Temp\Citrix*`
+  - Citrix CtxHook Registry, EDT/UDT-Protokoll, DWM Flip3d
+- **`windows-horizon-optimize.ps1`** – auf Horizon-spezifische Tweaks reduziert:
+  - Blast Extreme Encoder-Qualität, DPI-Synchronisierung
+  - OSOT (VMware OS Optimization Tool) – auskommentierter Referenz-Aufruf
+
+### Geändert – Packer Templates
+
+- **`windows/desktop/11/windows.pkr.hcl`**:
+  - Step 11 NEU (ALL broker): `windows-vdi-optimize.ps1`
+  - Step 11a (Citrix): schlankes `windows-citrix-optimize.ps1`
+  - Step 11b (Horizon): schlankes `windows-horizon-optimize.ps1`
+  - Header-Kommentar: vollständige Build-Pipeline für alle Broker dokumentiert
+- **`windows/desktop/11-avd/windows.pkr.hcl`**:
+  - Step 6b NEU: `windows-vdi-optimize.ps1` (nach FSLogix, vor Apps)
+
+### VDI Optimize Schicht-Modell (aktualisiert)
+| Script | Layer | Broker |
+|--------|-------|--------|
+| `windows-vdi-optimize.ps1` | 7b | **ALL** (citrix/horizon/avd/none) |
+| `windows-citrix-optimize.ps1` | 7b | citrix-mcs, citrix-pvs |
+| `windows-horizon-optimize.ps1` | 7b | horizon |
+| *(kein separates AVD-Optimize-Script)* | – | AVD (generic reicht) |
+
+---
+
 ## v1.7 – 2026-05-05
 
 ### Neue Features – Broker-Abstraktion (AVD + Horizon)

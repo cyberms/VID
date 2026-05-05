@@ -17,6 +17,7 @@
       6. AVD RD Agent + BootLoader (windows-avd-agent.ps1)                       [Schicht 7a]
       7. Reboot                                                                   [Schicht 7a]
       8. FSLogix (windows-avd-fslogix.ps1)                                       [Schicht 7b]
+      8b.Generic VDI Optimierungen (windows-vdi-optimize.ps1)                    [Schicht 7b]
       9. Application installation (windows-apps-install.ps1)                     [Schicht 7c]
      10. Publish to Azure Compute Gallery (Shared Image Gallery)                 [Finalize]
 
@@ -174,6 +175,15 @@ build {
     elevated_password = var.build_password
     scripts = ["${path.cwd}/../../scripts/windows/windows-avd-fslogix.ps1"]
     valid_exit_codes = [0, 3010]
+  }
+
+  // Step 6b [VID Schicht 7b – ALL]: Generische VDI Optimierungen (broker-agnostisch)
+  // Identisch mit vSphere-Template Step 11 – broker-unabhängiger Basis-Optimize
+  provisioner "powershell" {
+    elevated_user     = var.build_username
+    elevated_password = var.build_password
+    environment_vars  = ["VID_BROKER=avd"]
+    scripts           = ["${path.cwd}/../../scripts/windows/windows-vdi-optimize.ps1"]
   }
 
   // Step 7a [VID Schicht 7c – Apps]: apps-manifest.json hochladen
