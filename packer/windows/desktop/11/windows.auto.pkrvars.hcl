@@ -95,8 +95,10 @@ communicator_timeout = "12h"
 // ─────────────────────────────────────────────────────────────────────────────
 
 // [VID Schicht 5 – W11 OS] Broker-agnostische OS-Baseline (läuft vor allen Vendor-Tools)
+// DSC-Baseline ersetzt das imperative windows-prepare.ps1 (idempotent, auditierbar)
+// windows-prepare.ps1 ist deprecated – Inhalt wurde in dsc/VID-OSBaseline.ps1 migriert
 scripts_layer5 = [
-  "scripts/windows/windows-prepare.ps1"
+  "scripts/windows/windows-dsc-apply.ps1"
 ]
 
 // [VID Schicht 6 – Drivers]  VMware Tools: Einbindung via iso_paths (sources.pkrvars.hcl)

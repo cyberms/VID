@@ -1,5 +1,32 @@
 # Release History
 
+## v1.6 – 2026-05-05
+
+### Neue Features
+- **DSC OS-Baseline**: `dsc/VID-OSBaseline.ps1` ersetzt `windows-prepare.ps1` als idempotente, auditierbare PowerShell DSC-Konfiguration für Layer 5
+  - TLS 1.0 / TLS 1.1 deaktiviert (SCHANNEL, Client + Server)
+  - Hibernation und Fast Startup deaktiviert (VDA-Kompatibilität)
+  - Windows Fehlerberichterstattung (WER) deaktiviert
+  - Power Plan: High Performance (VDI-Best-Practice)
+  - Windows Search (WSearch) Dienst deaktiviert (Performance)
+  - Passwort läuft nie ab: lokale Admin-Accounts + Build-User
+  - Default User Hive: Explorer-Einstellungen für alle neuen Benutzer (NTUSER.DAT Mount)
+  - VID-Sentinel: Erfolgreiche Anwendung in `HKLM:\SOFTWARE\VendorIndependenceDay\DSC\` dokumentiert
+- **DSC-Runner**: `windows-dsc-apply.ps1` Bootstrap-Script für Packer-Integration
+  - LCM auf `ApplyOnly` + `Push` (kein Pull-Server erforderlich)
+  - MOF-Kompilierung nach `C:\Windows\Temp\VID-DSC\`
+  - `Test-DscConfiguration` für Compliance-Verifikation nach Apply
+  - Logging nach `C:\Windows\Logs\VID\vid-dsc-baseline.log`
+
+### Geändert
+- **`scripts_layer5`**: `windows-prepare.ps1` → `windows-dsc-apply.ps1` (deprecated)
+- **`windows.auto.pkrvars.hcl`**: Kommentar auf DSC-Baseline aktualisiert
+
+### Referenzen
+- Citrix Automation Handbook 2601 (Gerhard Krenn): Triad-Strategie (Packer + Terraform + Ansible) bestätigt VID-Architektur; Terraform-Provider für MCS/DaaS relevant für nächste Phase
+
+---
+
 ## v1.5 – 2026-03-30
 
 ### Neue Features
