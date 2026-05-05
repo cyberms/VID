@@ -31,3 +31,6 @@ packer.log
 ~$*.docx
 ~$*.xlsx
 ~$*.pptx
+
+# PSADT Framework (wird zur Build-Zeit eingebunden, nicht im Repo)
+_psadt-template/xoap-psadt-framework-template-master/
