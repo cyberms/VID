@@ -639,8 +639,18 @@ variable "build_layer5_only" {
 
 variable "build_include_citrix" {
   type        = bool
-  description = "Citrix-Integration einschließen (VDA, Optimierungen, MCS-Prep). false = w11-full ohne Citrix."
+  description = "[DEPRECATED] Citrix-Integration einschließen. Wird ignoriert wenn vid_broker gesetzt ist. Wird in v2.0 entfernt – bitte vid_broker = 'citrix-mcs' verwenden."
   default     = true
+}
+
+// ─── Horizon Agent Settings ───────────────────────────────────────────────────
+// Nur relevant wenn vid_broker = "horizon"
+// ─────────────────────────────────────────────────────────────────────────────
+
+variable "vid_horizon_installer" {
+  type        = string
+  description = "[vid_broker=horizon] Dateiname des Horizon Agent Installers auf dem SMB-Share unter vmware\\horizon\\. (z.B. 'VMware-Horizon-Agent-x86_64-2312.exe')"
+  default     = ""
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

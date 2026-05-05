@@ -310,16 +310,22 @@ build {
     }
   }
 
-  // ── CITRIX STEPS (nur wenn build_include_citrix = true) ─────────────────────
-  // VDA wird bewusst VOR den Apps installiert, damit der VDA bereits domain-joined
-  // ist wenn er sich beim Delivery Controller registriert. Apps folgen danach.
+  // ── BROKER AGENT STEPS (vid_broker steuert welcher Agent installiert wird) ────
+  // VID Layer-Prinzip: Layer 5 (OS) + Layer 7c (Apps) sind broker-agnostisch.
+  // Nur Layer 7a (Broker Agent) + 7b (Optimierungen) + 7 Finalize sind broker-spezifisch.
+  //
+  //   vid_broker = "citrix-mcs"  → Citrix VDA + MCS-Prep
+  //   vid_broker = "citrix-pvs"  → Citrix VDA + PVS-Prep (pagefile ClearOnShutdown)
+  //   vid_broker = "horizon"     → VMware/Broadcom Horizon Agent + IC-Prep
+  //   vid_broker = "avd"         → eigenes Template: windows/desktop/11-avd/ (azure-arm)
+  //   vid_broker = "none"        → kein Broker Agent (generic standalone image)
+  //
+  // Agent wird VOR den Apps installiert, damit er bereits domain-joined ist.
 
-  // Step 7 [VID Schicht 7a – Broker Agent]: Citrix VDA Installation
-  // The VDA installer is pulled from the VID-Data SMB share at build time:
-  //   \\<vid_smb_server>\VID-Data\citrix\vda\<vid_vda_installer>
-  // SWAP THIS STEP to replace Citrix with AVD Agent, Horizon Agent, etc.
+  // Step 7a [VID Schicht 7a – Citrix]: Citrix VDA Installation
+  // Installer vom VID-Data SMB-Share: \\<server>\VID-Data\citrix\vda\<installer>
   dynamic "provisioner" {
-    for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
+    for_each = !var.build_layer5_only && (var.vid_broker == "citrix-mcs" || var.vid_broker == "citrix-pvs") ? [1] : []
     labels   = ["powershell"]
     content {
       elevated_user     = var.build_username
@@ -366,9 +372,30 @@ build {
     }
   }
 
-  // Step 8 [VID Schicht 7a]: Reboot to complete VDA installation
+  // Step 7b [VID Schicht 7a – Horizon]: VMware/Broadcom Horizon Agent Installation
+  // Installer vom VID-Data SMB-Share: \\<server>\VID-Data\vmware\horizon\<installer>
   dynamic "provisioner" {
-    for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
+    for_each = !var.build_layer5_only && var.vid_broker == "horizon" ? [1] : []
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      environment_vars  = [
+        "VID_SMB_SERVER=${var.vid_smb_server}",
+        "VID_SMB_SHARE=${var.vid_smb_share}",
+        "VID_SMB_USERNAME=${var.vid_smb_username}",
+        "VID_SMB_PASSWORD=${var.vid_smb_password}",
+        "VID_BROKER=${var.vid_broker}",
+        "VID_HORIZON_INSTALLER=${var.vid_horizon_installer}",
+      ]
+      scripts          = ["${path.cwd}/scripts/windows/windows-horizon-agent.ps1"]
+      valid_exit_codes = [0, 1, 3010, 3011]
+    }
+  }
+
+  // Step 8 [VID Schicht 7a]: Reboot to complete Agent installation (Citrix + Horizon)
+  dynamic "provisioner" {
+    for_each = !var.build_layer5_only && (var.vid_broker == "citrix-mcs" || var.vid_broker == "citrix-pvs" || var.vid_broker == "horizon") ? [1] : []
     labels   = ["windows-restart"]
     content {
       restart_timeout       = "30m"
@@ -376,9 +403,9 @@ build {
     }
   }
 
-  // Step 9 [VID Schicht 7a]: Post-VDA Windows Updates
+  // Step 9 [VID Schicht 7a]: Post-Agent Windows Updates (Citrix + Horizon)
   dynamic "provisioner" {
-    for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
+    for_each = !var.build_layer5_only && (var.vid_broker == "citrix-mcs" || var.vid_broker == "citrix-pvs" || var.vid_broker == "horizon") ? [1] : []
     labels   = ["windows-update"]
     content {
       pause_before    = "30s"
@@ -430,9 +457,9 @@ build {
   // Skript vorhanden: scripts/windows/windows-dex-agent.ps1
   // Provisioner hier einkommentieren wenn DEX-Phase startet.
 
-  // Step 11 [VID Schicht 7a+7b – Broker + Profile]: VDI Optimizations (Citrix)
+  // Step 11a [VID Schicht 7a+7b – Citrix]: VDI Optimierungen (Citrix CVAD Optimizer)
   dynamic "provisioner" {
-    for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
+    for_each = !var.build_layer5_only && (var.vid_broker == "citrix-mcs" || var.vid_broker == "citrix-pvs") ? [1] : []
     labels   = ["powershell"]
     content {
       elevated_user     = var.build_username
@@ -442,15 +469,39 @@ build {
     }
   }
 
-  // Step 12 [VID Schicht 7 – Finalize]: MCS Master Image Preparation (cleanup, no sysprep!)
+  // Step 11b [VID Schicht 7a+7b – Horizon]: VDI Optimierungen (Horizon Optimization Tool)
   dynamic "provisioner" {
-    for_each = !var.build_layer5_only && var.build_include_citrix ? [1] : []
+    for_each = !var.build_layer5_only && var.vid_broker == "horizon" ? [1] : []
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      environment_vars  = ["VID_BROKER=${var.vid_broker}"]
+      scripts           = ["${path.cwd}/scripts/windows/windows-horizon-optimize.ps1"]
+    }
+  }
+
+  // Step 12a [VID Schicht 7 – Citrix Finalize]: MCS/PVS Master Image Preparation
+  dynamic "provisioner" {
+    for_each = !var.build_layer5_only && (var.vid_broker == "citrix-mcs" || var.vid_broker == "citrix-pvs") ? [1] : []
     labels   = ["powershell"]
     content {
       elevated_user     = var.build_username
       elevated_password = var.build_password
       environment_vars  = ["VID_BROKER=${var.vid_broker}"]
       scripts           = ["${path.cwd}/scripts/windows/windows-citrix-mcs-prep.ps1"]
+    }
+  }
+
+  // Step 12b [VID Schicht 7 – Horizon Finalize]: Instant Clone Master Image Preparation
+  dynamic "provisioner" {
+    for_each = !var.build_layer5_only && var.vid_broker == "horizon" ? [1] : []
+    labels   = ["powershell"]
+    content {
+      elevated_user     = var.build_username
+      elevated_password = var.build_password
+      environment_vars  = ["VID_BROKER=${var.vid_broker}"]
+      scripts           = ["${path.cwd}/scripts/windows/windows-horizon-ic-prep.ps1"]
     }
   }
 

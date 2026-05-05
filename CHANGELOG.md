@@ -1,5 +1,35 @@
 # Release History
 
+## v1.7 – 2026-05-05
+
+### Neue Features – Broker-Abstraktion (AVD + Horizon)
+- **Horizon Agent**: `windows-horizon-agent.ps1` – Stub für VMware/Broadcom Horizon Agent (Instant Clone)
+- **Horizon Optimize**: `windows-horizon-optimize.ps1` – VDI-Optimierungen für Horizon (SysMain, WSearch, OneDrive)
+- **Horizon IC-Prep**: `windows-horizon-ic-prep.ps1` – Instant Clone Master Image Finalize (analog MCS-Prep)
+- **AVD Agent**: `windows-avd-agent.ps1` – RD Agent + BootLoader für Azure Virtual Desktop
+- **FSLogix**: `windows-avd-fslogix.ps1` – FSLogix Profil-Container für AVD (Citrix UPM-Äquivalent)
+- **AVD Packer-Template**: `windows/desktop/11-avd/` – Eigenes Template mit `azure-arm` Builder, Azure Compute Gallery, Shared Image Gallery
+
+### Geändert – Broker-Agnostik in `windows.pkr.hcl`
+- **`build_include_citrix` DEPRECATED**: Alle `for_each`-Bedingungen auf `vid_broker`-Vergleiche umgestellt
+  - Citrix-Schritte: `vid_broker == "citrix-mcs" || vid_broker == "citrix-pvs"`
+  - Horizon-Schritte: `vid_broker == "horizon"` (NEU)
+  - AVD: eigenes Template `11-avd/` (azure-arm, nicht in diesem Template)
+- **Neue Provisioner-Blöcke**: Step 7b (Horizon Agent), Step 11b (Horizon Optimize), Step 12b (Horizon IC-Prep)
+- **`vid_horizon_installer`**: Neue Variable für den Horizon Agent Dateinamen auf dem SMB-Share
+
+### VID Layer-Prinzip (bestätigt)
+| Schicht | Inhalt | Broker-abhängig? |
+|---------|--------|-----------------|
+| 5 – OS Baseline (DSC) | TLS, Hibernate, Power Plan, ... | ❌ Nein |
+| 6 – Hypervisor Drivers | VMware Tools / XenServer Tools | ✅ Hypervisor |
+| 7a – Broker Agent | Citrix VDA / Horizon Agent / AVD RD Agent | ✅ Broker |
+| 7b – Optimierungen | Citrix Optimizer / OSOT / AVD Tweaks | ✅ Broker |
+| 7c – Apps (PSADT) | 7-Zip, Reader, Office, ... | ❌ Nein |
+| 8 – DEX (geplant) | ControlUp / uberagent | ❌ Nein |
+
+---
+
 ## v1.6 – 2026-05-05
 
 ### Neue Features
