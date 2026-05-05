@@ -1,91 +1,101 @@
 # VID – Vendor Independence Day
 
 ![Packer](https://img.shields.io/badge/HashiCorp%20Packer-1.9%2B-blue?style=for-the-badge&logo=packer&logoColor=white)
-![Windows 11](https://img.shields.io/badge/Windows%2011-Enterprise%20Eval-0078D4?style=for-the-badge&logo=windows&logoColor=white)
-![Citrix](https://img.shields.io/badge/Citrix-MCS-green?style=for-the-badge)
+![Windows 11](https://img.shields.io/badge/Windows%2011-Enterprise-0078D4?style=for-the-badge&logo=windows&logoColor=white)
+![Citrix](https://img.shields.io/badge/Citrix-MCS%20%7C%20PVS-green?style=for-the-badge)
+![Horizon](https://img.shields.io/badge/VMware-Horizon-607078?style=for-the-badge&logo=vmware&logoColor=white)
+![AVD](https://img.shields.io/badge/Azure-AVD-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)
 
-Automatisierte Erstellung von Windows 11 Master-Images für Citrix Virtual Apps and Desktops (CVAD) mit HashiCorp Packer und Citrix Machine Creation Services (MCS) auf VMware vSphere.
+Automatisierte, **broker-agnostische** Erstellung von Windows 11 Master-Images mit HashiCorp Packer. Unterstützte Zielplattformen:
 
-## Übersicht
+| Broker | Technologie | Packer-Template |
+|--------|-------------|-----------------|
+| **Citrix MCS** | vSphere + Citrix VDA + MCS-Seal | `windows/desktop/11/` |
+| **Citrix PVS** | vSphere + Citrix VDA + PVS-Prep | `windows/desktop/11/` |
+| **VMware Horizon** | vSphere + Horizon Agent + IC-Prep | `windows/desktop/11/` |
+| **Azure AVD** | Azure ARM + AVD RD Agent + FSLogix | `windows/desktop/11-avd/` |
+| **Standalone** | vSphere, kein Broker | `windows/desktop/11/` |
 
-Das VID-Projekt implementiert eine 8-Schichten-Architektur für eine herstellerunabhängige End-User-Computing-Umgebung. Jede Schicht kann unabhängig von den anderen ausgetauscht werden.
+## VID-Architektur – Layer-Modell
 
-| Layer | Inhalt | Packer-Schritt |
-|-------|--------|----------------|
-| 5 | Windows 11 Enterprise – OS-Basis, VMware Tools, Windows Updates | w11-base |
-| 6 | Hypervisor-Treiber (VMware Tools / Citrix VM Tools) | w11-base |
-| 7a | Citrix Virtual Delivery Agent (VDA) | w11-vda |
-| 7b | Citrix-Optimierungen | w11-vda |
-| 7c | Applikationen (apps-manifest.json) | w11-full / w11-vda |
-| 7d | Active Directory Domain-Join (optional) | w11-full / w11-vda |
-| 8 | DEX Agent & Monitoring (ControlUp / uberagent) | später |
-| MCS | Machine Creation Services Seal | w11-vda |
+Das Projekt implementiert eine strikt getrennte 8-Schichten-Architektur. Jede Schicht kann unabhängig ausgetauscht werden:
 
-Der Build-Prozess erstellt eine fertige Master-VM in vSphere, die direkt von Citrix MCS für das Deployment verwendet wird (`common_template_conversion = false`).
+| Layer | Inhalt | Broker-abhängig | Script |
+|-------|--------|-----------------|--------|
+| 5 | Windows 11 OS-Baseline, DSC-Härtung, Updates | ❌ Nein | `windows-dsc-apply.ps1` |
+| 6 | Hypervisor-Treiber (VMware Tools / XenServer Tools) | ✅ Hypervisor | `windows-vmtools.ps1` |
+| 7a | Broker Agent (VDA / Horizon Agent / AVD RD Agent) | ✅ Broker | `windows-*-agent/vda.ps1` |
+| 7b | VDI-Optimierungen: generisch + broker-spezifisch | ✅ teilweise | `windows-vdi-optimize.ps1` + `windows-*-optimize.ps1` |
+| 7c | Applikationen (PSADT → Winget → Chocolatey) | ❌ Nein | `windows-apps-install.ps1` |
+| 7d | Active Directory Domain-Join (optional) | ❌ Nein | `windows-domain-join.ps1` |
+| 7f | Finalize: MCS-Seal / IC-Prep / AVD-Cleanup | ✅ Broker | `windows-*-prep.ps1` |
+| 8 | DEX Agent & Monitoring (ControlUp / uberagent) | ❌ Nein | *geplant* |
+
+> **VID-Prinzip:** Layer 5 (OS) und Layer 7c (Apps) sind vollständig broker-agnostisch. Nur die Layer-7a/7b/7f-Scripts müssen beim Wechsel des Brokers ausgetauscht werden.
 
 ## Voraussetzungen
 
 ### Build-System (Linux/Ubuntu)
 
 ```bash
-# Packer installieren
-sudo apt update && sudo apt install -y packer
-
-# Pflichtpaket: xorriso (für virtuelle CD-ISO-Erstellung)
-sudo apt install -y xorriso git
+sudo apt update && sudo apt install -y packer xorriso git
 ```
 
-### Packer-Plugins
+### Packer-Plugins (werden via `packer init` automatisch geladen)
 
-Die Plugins werden beim ersten Aufruf von `packer init` automatisch heruntergeladen:
+- [packer-plugin-vsphere](https://developer.hashicorp.com/packer/plugins/builders/vsphere/vsphere-iso) ≥ 1.2.0
+- [packer-plugin-windows-update](https://github.com/rgl/packer-plugin-windows-update) ≥ 0.14.3
+- [packer-plugin-git](https://github.com/ethanmdavidson/packer-plugin-git) ≥ 0.4.2
+- [packer-plugin-azure](https://developer.hashicorp.com/packer/plugins/builders/azure) ≥ 2.0.0 *(nur für AVD)*
 
-- [packer-plugin-vsphere](https://developer.hashicorp.com/packer/plugins/builders/vsphere/vsphere-iso) 1.2.0+
-- [packer-plugin-windows-update](https://github.com/rgl/packer-plugin-windows-update) 0.14.3+
-- [packer-plugin-git](https://github.com/ethanmdavidson/packer-plugin-git) 0.4.2+
-
-### vSphere / Infrastruktur
+### vSphere-Infrastruktur (für Citrix/Horizon)
 
 - vCenter Server mit API-Zugang
-- Datastore mit ausreichend Speicherplatz (~60 GB pro Build)
+- Datastore ≥ 60 GB pro Build
 - Windows 11 ISO auf dem Datastore
 - VMware Tools ISO auf dem Datastore
 - Netzwerk mit DHCP
 
+### Azure (für AVD)
+
+- Azure Subscription mit Contributor-Rolle auf Build-RG und Gallery-RG
+- Service Principal (App Registration) mit Client-Secret
+- Azure Compute Gallery (Shared Image Gallery) angelegt
+
 ### VID-Data SMB-Share
 
-Alle Build-Artefakte werden über einen zentralen SMB-Share bereitgestellt:
+Zentrale Ablage für alle Build-Artefakte:
 
 ```
 \\<server>\VID-Data\
-  Citrix\VDA\          ← Citrix VDA Installer (z.B. VDAWorkstationSetup_2511.exe)
-  citrix\optimize\     ← Optionale Custom-Optimierungsskripte
-  microsoft\avd\       ← AVD Agent (Phase 3)
-  microsoft\fslogix\   ← FSLogix (Phase 2+)
-  dex\controlup\       ← ControlUp Agent (Layer 8 – später)
-  dex\uberagent\       ← uberagent (Layer 8 – später)
-  drivers\vmware\      ← Zusätzliche VMware-Treiber
-  apps\                ← Business-App-Installer (Layer 7c)
+  citrix\
+    vda\          ← Citrix VDA Installer (VDAWorkstationSetup_2511.exe)
+    optimize\     ← Optionale Custom-Optimierungsskripte
+  vmware\
+    horizon\      ← Horizon Agent Installer (VMware-Horizon-Agent-x86_64-*.exe)
+  microsoft\
+    avd\          ← AVD RD Agent (alternativ: Download via aka.ms/rdagent)
+    fslogix\      ← FSLogix Apps (alternativ: Download via aka.ms/fslogix-latest)
+  dex\
+    controlup\    ← ControlUp Agent (Layer 8 – geplant)
+    uberagent\    ← uberagent (Layer 8 – geplant)
+  drivers\
+    vmware\       ← Zusätzliche VMware-Treiber
+  apps\           ← Business-App-Installer für PSADT-Pakete (Layer 7c)
 ```
 
-Der Build-Account benötigt Leserechte auf dem Share. Die VM muss **nicht** in der Domain sein – Credentials werden explizit übergeben.
-
-## Konfiguration
+## Konfiguration (vSphere – Citrix/Horizon)
 
 ### Schritt 1 – Konfigurationsdateien anlegen
 
-Die sensitiven Konfigurationsdateien sind **nicht** im Repository enthalten (`.gitignore`). Erstelle sie aus den Beispieldateien:
-
 ```bash
 cd packer/config
-
 cp vsphere.pkrvars.hcl.example vsphere.pkrvars.hcl
 cp build.pkrvars.hcl.example   build.pkrvars.hcl
 cp sources.pkrvars.hcl.example sources.pkrvars.hcl
 ```
 
-### Schritt 2 – vSphere-Verbindung konfigurieren
-
-Bearbeite `packer/config/vsphere.pkrvars.hcl`:
+### Schritt 2 – vSphere-Verbindung (`vsphere.pkrvars.hcl`)
 
 ```hcl
 vsphere_endpoint            = "vcenter.example.com"
@@ -99,70 +109,79 @@ vsphere_network             = "VM Network"
 vsphere_folder              = "packer-builds"
 ```
 
-### Schritt 3 – ISO-Quellen und SMB-Share konfigurieren
-
-Bearbeite `packer/config/sources.pkrvars.hcl`:
+### Schritt 3 – ISO-Quellen und SMB-Share (`sources.pkrvars.hcl`)
 
 ```hcl
-# Windows 11 ISO
-common_iso_datastore = "datastore1"
-iso_path             = "iso"
-iso_file             = "Win11_Enterprise_Eval.iso"
-iso_checksum_type    = "sha256"
-iso_checksum_value   = "CHECKSUM_DES_ISO"
+common_iso_datastore  = "datastore1"
+iso_path              = "iso"
+iso_file              = "Win11_Enterprise_Eval.iso"
+iso_checksum_type     = "sha256"
+iso_checksum_value    = "CHECKSUM_DES_ISO"
 
-# VMware Tools ISO
-vmtools_iso_datastore = ""          # leer = ESXi host-local
 vmtools_iso_path      = "/vmimages/tools-isoimages/windows.iso"
 
-# VID-Data SMB-Share
-vid_smb_server    = "fileserver.example.com"
-vid_smb_share     = "VID-Data"
-vid_smb_username  = "DOMAIN\\svc-packer"
-vid_smb_password  = "DEIN_PASSWORT"
-vid_vda_installer = "VDAWorkstationSetup_2511.exe"
+vid_smb_server        = "fileserver.example.com"
+vid_smb_share         = "VID-Data"
+vid_smb_username      = "DOMAIN\\svc-packer"   # Backslash verdoppeln!
+vid_smb_password      = "DEIN_PASSWORT"
+
+# Citrix
+vid_vda_installer     = "VDAWorkstationSetup_2511.exe"
+
+# Horizon (nur wenn vid_broker = "horizon")
+vid_horizon_installer = "VMware-Horizon-Agent-x86_64-8.13.0-12345678.exe"
 ```
 
-> **Tipp:** SHA256-Prüfsumme ermitteln mit `sha256sum Win11.iso` (Linux) oder `Get-FileHash Win11.iso -Algorithm SHA256` (PowerShell).
+> **Tipp:** SHA256-Prüfsumme: `sha256sum Win11.iso` (Linux) oder `Get-FileHash Win11.iso -Algorithm SHA256` (PowerShell)
 
-> **Hinweis:** Backslashes in HCL-Strings müssen verdoppelt werden: `DOMAIN\\user` statt `DOMAIN\user`.
-
-### Schritt 4 – Build-Account und Domain-Join konfigurieren
-
-Bearbeite `packer/config/build.pkrvars.hcl`:
+### Schritt 4 – Build-Account und Domain-Join (`build.pkrvars.hcl`)
 
 ```hcl
-# Lokaler Administrator während des Builds
 build_username = "adminst"
 build_password = "DEIN_PASSWORT"
 
-# Active Directory Domain-Join (vor VDA-Installation)
 domain_join_enabled       = true
-domain_name               = "sav-kb.de"
-domain_join_username      = "svc-packer@sav-kb.de"
+domain_name               = "corp.example.com"
+domain_join_username      = "svc-packer@corp.example.com"
 domain_join_password      = "DEIN_PASSWORT"
-domain_join_ou            = "OU=GoldenImage,OU=VDI,OU=Clients,DC=sav-kb,DC=de"
+domain_join_ou            = "OU=GoldenImage,OU=VDI,OU=Clients,DC=corp,DC=example,DC=com"
 domain_join_computer_name = "VID-W11-BUILD"   # leer = Windows-generierter Name
 ```
 
-> **Hinweis:** `domain_join_enabled = false` deaktiviert den Domain-Join vollständig.
+### Schritt 5 – Broker auswählen (`windows.auto.pkrvars.hcl`)
 
-### Schritt 5 – VM-Hardware anpassen (optional)
-
-Die VM-Größe für den Build-Prozess wird in `packer/windows/desktop/11/windows.auto.pkrvars.hcl` definiert:
+Die Broker-Auswahl steuert, welche Layer-7a/7b/7f-Steps ausgeführt werden:
 
 ```hcl
-vm_cpu_count  = 4       # Gesamt-vCPUs
-vm_cpu_cores  = 4       # Cores pro Socket → 1 Socket × 4 Cores = 4 vCPUs
-vm_mem_size   = 4096    # RAM in MB → 4 GB
-vm_disk_size  = 102400  # Disk in MB → 100 GB
+vid_broker = "citrix-mcs"   # citrix-mcs | citrix-pvs | horizon | none
 ```
 
-> **Hinweis:** Die Dimensionierung des Master-Images hat keinen Einfluss auf die späteren VDI-Desktops – die Größe wird in MCS am Katalog festgelegt.
+## Konfiguration (Azure AVD)
+
+Erstelle `packer/windows/desktop/11-avd/build.pkrvars.hcl` (nicht im Repo):
+
+```hcl
+# Azure Authentication (Service Principal)
+azure_client_id       = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+azure_client_secret   = "DEIN_SECRET"
+azure_tenant_id       = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+azure_subscription_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Build-Infrastruktur
+azure_build_resource_group  = "rg-vid-build"
+azure_build_storage_account = "stvidpacker"
+azure_gallery_resource_group = "rg-vid-gallery"
+azure_gallery_name           = "gal_vid_images"
+
+# Build-Credentials
+build_username = "adminst"
+build_password = "DEIN_PASSWORT"
+```
 
 ## Applikationen konfigurieren
 
-Welche Apps installiert werden, steuert `packer/scripts/windows/apps-manifest.json`. Die Datei wird automatisch vor der Installation auf die Build-VM hochgeladen.
+Die App-Installation wird über `packer/scripts/windows/apps-manifest.json` gesteuert.  
+Installer-Priorität: **PSADT** → **Winget (pinned)** → **Chocolatey**
 
 ```json
 {
@@ -171,53 +190,73 @@ Welche Apps installiert werden, steuert `packer/scripts/windows/apps-manifest.js
       "group": "Productivity",
       "enabled": true,
       "apps": [
-        { "name": "7-Zip", "enabled": true, "winget": "7zip.7zip", "chocolatey": "7zip" },
-        { "name": "Adobe Reader", "enabled": true, "winget": "Adobe.Acrobat.Reader.64-bit" }
+        {
+          "name": "7-Zip",
+          "enabled": true,
+          "psadt_path": "psadt/packages/7-Zip",
+          "winget": "7zip.7zip",
+          "winget_version": "24.08.0.0",
+          "chocolatey": "7zip"
+        }
       ]
     }
   ]
 }
 ```
 
-Primär-Installer ist **Winget**, Fallback ist **Chocolatey**. Apps mit `"enabled": false` werden übersprungen.
+PSADT-Pakete liegen unter `packer/scripts/windows/psadt/packages/`. Das Framework (`psadt/_framework/`) und das Deploy-Script werden beim Build automatisch zusammengeführt.
 
 ## Build starten
 
+### vSphere (Citrix / Horizon)
+
 ```bash
-# Vom Repository-Root ausführen:
-./build.sh w11-base    # Schnellster Test: nur OS + VMware Tools + Updates
-./build.sh w11-full    # Alles außer Citrix: OS, Updates, Domain-Join, Apps
-./build.sh w11-vda     # Vollständiges Master-Image inkl. Citrix VDA + MCS-Seal
+# Vom Repository-Root:
+./build.sh w11-base    # Layer 5+6: OS + VMware Tools + Updates (schnellster Test)
+./build.sh w11-full    # Layer 5+6+7c+7d: Alles ohne Broker-Agent
+./build.sh w11-vda     # Vollständiges Master-Image (Broker via vid_broker-Variable)
 ```
 
-### Build-Targets im Überblick
+### Azure AVD
 
-| Target | Layer | Inhalt | Verwendung |
-|--------|-------|--------|------------|
-| `w11-base` | 5+6 | OS + VMware Tools + Updates | Schneller Infrastrukturtest |
-| `w11-full` | 5+6+7c+7d | Alles außer Citrix VDA | Test ohne Citrix-Lizenz |
-| `w11-vda` | 5–8 | Vollständiges Master-Image | Produktion / MCS |
+```bash
+cd packer/windows/desktop/11-avd
+packer init .
+packer build -var-file="build.pkrvars.hcl" .
+```
 
-### Was passiert beim Build (`w11-vda`):
+### Build-Targets (vSphere)
 
-1. **Windows 11 Installation** – Vollautomatisch via `autounattend.xml`
-2. **VMware Tools** – Silent-Installation aus ISO
-3. **WinRM-Initialisierung** – Packer-Verbindung wird aufgebaut
-4. **OS-Baseline** – `windows-prepare.ps1` (Härtung, Grundkonfiguration)
-5. **Windows Updates** – Alle verfügbaren Updates (Pre-VDA)
-6. **Domain-Join** – VM tritt der AD-Domain bei (wenn `domain_join_enabled = true`)
-7. **Neustart** – Nach Domain-Join
-8. **App-Installation** – `apps-manifest.json` (Winget / Chocolatey)
-9. **Citrix VDA** – Silent-Installation vom SMB-Share
-10. **Neustart** – Nach VDA-Installation
-11. **Post-VDA Updates** – Windows Updates nach VDA
-12. **Citrix-Optimierungen** – `windows-citrix-optimize.ps1`
-13. **MCS-Seal** – `windows-citrix-mcs-prep.ps1` (Cleanup, kein Sysprep)
-14. **VM wird in vSphere gespeichert** – Direkt als Master-Image verwendbar
+| Target | Layer | `vid_broker` | Verwendung |
+|--------|-------|--------------|------------|
+| `w11-base` | 5+6 | *ignoriert* | Schneller Infrastrukturtest |
+| `w11-full` | 5+6+7c+7d | `none` | Test ohne Broker-Lizenz |
+| `w11-vda` | 5–7f | `citrix-mcs` | Citrix MCS Master-Image (Produktion) |
+| `w11-vda` | 5–7f | `citrix-pvs` | Citrix PVS vDisk-Image |
+| `w11-vda` | 5–7f | `horizon` | VMware/Broadcom Horizon IC-Image |
 
-> **Hinweis:** Der Build dauert typischerweise **60–90 Minuten**, abhängig von der Anzahl der Windows Updates.
+### Build-Pipeline (`w11-vda`, `vid_broker = "citrix-mcs"`)
 
-> **MCS-Hinweis:** Sysprep ist **nicht** erforderlich. MCS übernimmt Machine Identity (SID, Hostname, Domain-Join) automatisch beim Provisioning.
+| # | Schritt | Script | Layer |
+|---|---------|--------|-------|
+| 1 | Windows 11 Installation | `autounattend.pkrtpl.hcl` | 5 |
+| 2 | VMware Tools | `windows-vmtools.ps1` | 6 |
+| 3 | WinRM-Init | `windows-init.ps1` | 5 |
+| 4 | OS-Baseline DSC | `windows-dsc-apply.ps1` | 5 |
+| 5 | Windows Updates (pre-Agent) | *(windows-update Plugin)* | 5 |
+| 6 | Domain-Join (optional) + Neustart | `windows-domain-join.ps1` | 5→7 |
+| 7a | Citrix VDA | `windows-citrix-vda.ps1` | 7a |
+| 8 | Neustart | — | 7a |
+| 9 | Windows Updates (post-Agent) | *(windows-update Plugin)* | 7a |
+| 10 | App-Installation | `windows-apps-install.ps1` | 7c |
+| 11 | Generische VDI-Optimierungen | `windows-vdi-optimize.ps1` | 7b |
+| 11a | Citrix-spezifische Optimierungen | `windows-citrix-optimize.ps1` | 7b |
+| 12a | MCS/PVS Master Image Seal | `windows-citrix-mcs-prep.ps1` | 7f |
+| 13 | Event-Log-Cleanup | *(inline)* | Finalize |
+
+> **Hinweis:** Bei `vid_broker = "horizon"` werden Step 7a → `windows-horizon-agent.ps1`, Step 11a → `windows-horizon-optimize.ps1` und Step 12 → `windows-horizon-ic-prep.ps1` verwendet. Steps 11 (generisch) und 10 (Apps) bleiben identisch.
+
+> Build-Dauer: typischerweise **60–90 Minuten** (abhängig von Windows Updates).
 
 ### Debug-Modus
 
@@ -229,56 +268,88 @@ PACKER_LOG=1 PACKER_LOG_PATH=packer-debug.log ./build.sh w11-vda
 
 ```
 .
-├── build.sh                             # Einstiegspunkt (vom Repo-Root ausführen)
+├── build.sh                                  # Einstiegspunkt (Repo-Root)
+├── CHANGELOG.md
 ├── packer/
-│   ├── create_templates.sh              # Internes Build-Skript
+│   ├── create_templates.sh                   # Internes Build-Skript
 │   ├── config/
-│   │   ├── common.pkrvars.hcl           # Allgemeine Einstellungen (Timeouts, MCS-Modus)
-│   │   ├── vsphere.pkrvars.hcl          # vCenter-Zugangsdaten (nicht im Repo)
-│   │   ├── build.pkrvars.hcl            # Build-Account + Domain-Join (nicht im Repo)
-│   │   ├── sources.pkrvars.hcl          # ISO-Pfade + SMB-Share (nicht im Repo)
-│   │   ├── vsphere.pkrvars.hcl.example
-│   │   ├── build.pkrvars.hcl.example
-│   │   └── sources.pkrvars.hcl.example
+│   │   ├── vsphere.pkrvars.hcl(.example)     # vCenter-Credentials
+│   │   ├── build.pkrvars.hcl(.example)       # Build-Account + Domain-Join
+│   │   ├── sources.pkrvars.hcl(.example)     # ISO-Pfade + SMB-Share
+│   │   └── common.pkrvars.hcl
 │   ├── scripts/windows/
-│   │   ├── windows-prepare.ps1          # OS-Baseline (Layer 5)
-│   │   ├── windows-domain-join.ps1      # AD Domain-Join (Layer 5→7)
-│   │   ├── windows-apps-install.ps1     # App-Installation via Manifest (Layer 7c)
-│   │   ├── apps-manifest.json           # App-Konfiguration (Winget / Chocolatey)
-│   │   ├── windows-citrix-vda.ps1       # Citrix VDA Installation (Layer 7a)
-│   │   ├── windows-citrix-optimize.ps1  # Citrix-Optimierungen (Layer 7b)
-│   │   └── windows-citrix-mcs-prep.ps1  # MCS-Vorbereitung / Seal
-│   └── windows/desktop/11/
-│       ├── windows.pkr.hcl              # Haupt-Packer-Template
-│       ├── variables.pkr.hcl            # Variablen-Definitionen
-│       ├── windows.auto.pkrvars.hcl     # VM-Hardware-Einstellungen
-│       └── data/
-│           └── autounattend.pkrtpl.hcl  # Windows-Antwortdatei
+│   │   ├── dsc/
+│   │   │   └── VID-OSBaseline.ps1            # PowerShell DSC – OS-Baseline (Layer 5)
+│   │   ├── psadt/
+│   │   │   ├── _framework/                   # XOAP PSADT Framework 3.9.2
+│   │   │   ├── _template/                    # VID Deploy-Application.ps1 Template
+│   │   │   └── packages/                     # App-Pakete (7-Zip, Adobe Reader, ...)
+│   │   ├── windows-dsc-apply.ps1             # DSC Runner / Packer Bootstrap (Layer 5)
+│   │   ├── windows-init.ps1                  # WinRM-Initialisierung (Layer 5)
+│   │   ├── windows-vmtools.ps1               # VMware Tools (Layer 6)
+│   │   ├── windows-domain-join.ps1           # AD Domain-Join (Layer 7d)
+│   │   ├── windows-apps-install.ps1          # App-Orchestrator: PSADT/Winget/Choco (Layer 7c)
+│   │   ├── apps-manifest.json                # App-Konfiguration (alle Broker)
+│   │   ├── windows-vdi-optimize.ps1          # Generische VDI-Optimierungen – ALLE Broker (Layer 7b)
+│   │   ├── windows-citrix-vda.ps1            # Citrix VDA Installation (Layer 7a)
+│   │   ├── windows-citrix-optimize.ps1       # Citrix-spezifische Tweaks (Layer 7b)
+│   │   ├── windows-citrix-mcs-prep.ps1       # Citrix MCS/PVS Master Image Seal (Layer 7f)
+│   │   ├── windows-horizon-agent.ps1         # Horizon Agent Installation (Layer 7a)
+│   │   ├── windows-horizon-optimize.ps1      # Horizon-spezifische Tweaks (Layer 7b)
+│   │   ├── windows-horizon-ic-prep.ps1       # Horizon Instant Clone IC-Prep (Layer 7f)
+│   │   ├── windows-avd-agent.ps1             # AVD RD Agent + BootLoader (Layer 7a)
+│   │   └── windows-avd-fslogix.ps1           # FSLogix Profil-Container (Layer 7b)
+│   └── windows/desktop/
+│       ├── 11/                               # vSphere-Template (Citrix + Horizon)
+│       │   ├── windows.pkr.hcl               # Haupt-Packer-Template (multi-broker)
+│       │   ├── variables.pkr.hcl             # Variablen-Definitionen
+│       │   ├── windows.auto.pkrvars.hcl      # VM-Hardware + vid_broker
+│       │   └── data/autounattend.pkrtpl.hcl  # Windows-Antwortdatei
+│       ├── 11-avd/                           # Azure ARM-Template (AVD)
+│       │   ├── windows.pkr.hcl               # AVD Packer-Template (azure-arm Builder)
+│       │   └── variables.pkr.hcl             # Azure-Variablen + Gallery
+│       └── 11-xenserver/                     # XenServer/Citrix Hypervisor (WIP)
 ├── citrix-mcs/
-│   ├── deploy-citrix-mcs.ps1            # MCS-Deployment (Windows-Host)
-│   └── update-image.ps1                 # Image-Update in Citrix DaaS
+│   ├── deploy-citrix-mcs.ps1                 # MCS-Deployment
+│   └── update-image.ps1                      # Image-Update in Citrix DaaS
 └── Vendor-Independence-Day-Architekturkonzept-v1.0.md
 ```
+
+## VDI Optimize – Schicht-Modell
+
+Die VDI-Optimierungen sind in generisch + broker-spezifisch aufgeteilt:
+
+| Script | Layer | Broker | Inhalt |
+|--------|-------|--------|--------|
+| `windows-vdi-optimize.ps1` | 7b | **ALL** | Power Plan, Services, Scheduled Tasks, Telemetrie, OneDrive, Netzwerk, Storage, AppX, Visual/UI, Event Logs, Terminal Services |
+| `windows-citrix-optimize.ps1` | 7b | citrix-mcs, citrix-pvs | Defender Exclusions für Citrix-Pfade, CtxHook Registry, EDT/UDT-Protokoll |
+| `windows-horizon-optimize.ps1` | 7b | horizon | Blast Extreme Tweaks, DPI-Sync, OSOT-Referenz |
+| *(kein separates Script)* | — | avd | Generisches Script reicht (kein AVD-spezifisches Optimize nötig) |
 
 ## Häufige Probleme
 
 | Problem | Ursache | Lösung |
 |---------|---------|--------|
 | `xorriso` nicht gefunden | Paket fehlt | `sudo apt install -y xorriso` |
-| `Invalid escape sequence` in HCL | Einfacher Backslash in String | `DOMAIN\\user` statt `DOMAIN\user` |
-| `Unsupported attribute` beim Build | Build-VM hat alten Git-Stand | `git pull` auf der Build-VM |
-| `apps-manifest.json not found` | Datei nicht auf VM hochgeladen | Liegt an fehlendem `file`-Provisioner (bereits gefixt) |
-| `timeout waiting for IP address` | VMware Tools fehlen oder ISO-Pfad falsch | `vmtools_iso_path` in `sources.pkrvars.hcl` prüfen |
-| Build hängt bei Windows Updates | Normal – Updates dauern 15–45 Min | Warten, ggf. `common_ip_wait_timeout` erhöhen |
-| Domain-Join schlägt fehl | Computer-Account existiert bereits | Alten Account im AD löschen vor dem nächsten Build |
+| `Invalid escape sequence` | Einfacher Backslash in HCL | `DOMAIN\\user` statt `DOMAIN\user` |
+| `Unsupported attribute` | Veralteter Git-Stand auf Build-VM | `git pull` auf der Build-VM |
+| `apps-manifest.json not found` | Datei nicht hochgeladen | Bereits gefixt – `file`-Provisioner läuft vor App-Script |
+| `timeout waiting for IP` | VMware Tools fehlen / ISO-Pfad falsch | `vmtools_iso_path` in `sources.pkrvars.hcl` prüfen |
+| Build hängt bei Windows Updates | Normal – dauert 15–45 Min | Warten, ggf. `restart_timeout` erhöhen |
+| Domain-Join schlägt fehl | Computer-Account existiert bereits | Alten Account im AD löschen |
+| DSC `Test-DscConfiguration` = False | Ressourcen-Drift im WinRM-Kontext | Log prüfen: `C:\Windows\Logs\VID\vid-dsc-baseline.log` |
+| Horizon Agent-Installation schlägt fehl | `vid_horizon_installer` nicht gesetzt | Dateiname des Installers in `windows.auto.pkrvars.hcl` eintragen |
 
 ## Sicherheit
 
 - **Passwörter** werden niemals committed – alle sensitiven `.pkrvars.hcl` sind in `.gitignore`
-- Für CI/CD-Systeme: Umgebungsvariablen mit `PKR_VAR_`-Prefix verwenden (z.B. `PKR_VAR_build_password`)
-- Der Build-Account (`adminst`) wird nur während des Build-Prozesses benötigt
-- SMB-Zugang erfolgt mit expliziten Credentials – kein Domain-Join der Build-VM erforderlich
+- Für CI/CD: Umgebungsvariablen mit `PKR_VAR_`-Prefix verwenden (z.B. `PKR_VAR_build_password`)
+- Der Build-Account (`adminst`) wird nur während des Builds benötigt
+- SMB-Zugang mit expliziten Credentials – kein Domain-Join der Build-VM erforderlich
+- Azure: Service Principal mit minimalen Rechten (Contributor nur auf Build-RG + Gallery-RG)
+- VID-Sentinel: Erfolgreiche Anwendung aller Scripts wird in `HKLM:\SOFTWARE\VendorIndependenceDay\` dokumentiert
 
 ## Dokumentation
 
-- [Vendor-Independence-Day-Architekturkonzept-v1.0.md](Vendor-Independence-Day-Architekturkonzept-v1.0.md)
+- [CHANGELOG.md](CHANGELOG.md) – Release-History
+- [Vendor-Independence-Day-Architekturkonzept-v1.0.md](Vendor-Independence-Day-Architekturkonzept-v1.0.md) – Architektur-Konzept
