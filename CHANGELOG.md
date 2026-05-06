@@ -1,5 +1,68 @@
 # Release History
 
+## v2.1 – 2026-05-06
+
+### Neu – terraform/citrix-resource-location/ Scaffold (Phase 1c)
+
+Vollständige 3-Modul-Struktur für Citrix Cloud Connector Provisioning auf vSphere (SCAFFOLD-Status):
+
+- **module-1-vsphere**: Cloud Connector VMs + Admin-VM in vSphere anlegen
+  - vsphere Provider (hashicorp/vsphere >= 2.7.0)
+  - Domain Join + WinRM-Aktivierung via `run_once_command_list`
+  - 2× CC-VMs (VID-CC-01/02), 1× Admin-VM, konfigurierbar
+- **module-2-install**: Cloud Connector Software + CitrixPoshSdk via WinRM installieren
+  - null_resource mit WinRM-Connection zu CC-VMs
+  - `cwcconnector.exe` Silent-Install, `CitrixPoshSdk.exe`
+  - `citrix_zone` Resource = Citrix Cloud Resource Location
+  - Output: `resource_location_id`
+- **module-3-hypervisor**: Hosting Connection + Resource Pool in Citrix Cloud
+  - `citrix_hypervisor` (VCenter-Typ) + `citrix_hypervisor_resource_pool`
+  - Outputs: `hypervisor_id`, `hypervisor_resource_pool_id` → in `terraform/citrix/terraform.tfvars` eintragen
+
+### Neu – terraform/horizon/ Scaffold (Future Phase)
+
+3-Modul-Struktur für VMware Horizon Infrastruktur (SCAFFOLD-Status, Future Phase):
+
+- **module-1-vsphere**: Horizon Connection Server VMs (Primary + Replica) in vSphere
+  - vsphere Provider, WinRM-Aktivierung via `run_once_command_list`
+  - Konfigurierbar: VM-Count, CPU, Memory, Netzwerk, AD Domain Join
+- **module-2-install**: Horizon Connection Server Silent-Install via WinRM
+  - null_resource mit WinRM, Installer-Download + Ausführung
+  - Unterschiedliche Installer-Args für Primary (`INSTANCE_TYPE=1`) und Replica (`INSTANCE_TYPE=2`)
+- **module-3-config**: Horizon-Konfiguration via REST API (SCAFFOLD)
+  - Hinweis: Kein offizieller Terraform-Provider für Horizon vorhanden
+  - Geplant: vCenter-Hosting, Desktop Pools (Instant Clone), Entitlements via Horizon REST API
+  - Phase 3+ empfohlen: Ansible VMware Horizon Collection
+
+### Neu – terraform/avd/ Scaffold (Future Phase)
+
+3-Modul-Struktur für Azure Virtual Desktop Infrastruktur (SCAFFOLD-Status, Future Phase):
+
+- **module-1-azure-infra**: Azure Basisinfrastruktur
+  - azurerm + azuread Provider
+  - Resource Group, VNet, Subnets (Session Hosts, MGMT)
+  - Network Security Group (RDP aus Internet gesperrt, AVD ServiceTag erlaubt)
+- **module-2-hostpool**: AVD Host Pool, Workspace, Application Groups
+  - `azurerm_virtual_desktop_host_pool` (Pooled/Personal, BreadthFirst/DepthFirst)
+  - `azurerm_virtual_desktop_workspace` + Desktop Application Group
+  - Optionale RemoteApp Application Group
+  - RBAC: Desktop Virtualization User Role für AAD-Nutzergruppe
+  - Registration Token via `time_rotating` Resource (2h Rotation)
+- **module-3-sessionhosts**: Session Host VMs
+  - Windows VMs aus VID Packer-Image (Azure Compute Gallery oder Managed Image)
+  - Domain Join Extension (Hybrid ADDS oder Azure AD Join)
+  - AVD Agent + Bootloader via DSC Extension
+
+### Neu – terraform/README.md + terraform/citrix-resource-location/README.md
+
+Übersichts-Dokumentation der gesamten Terraform-Landschaft:
+- Modul-Tabelle mit Status, Phase, Voraussetzungen
+- Reihenfolge-Diagramm (citrix-resource-location → citrix → Packer → update-image)
+- Tool-Stack-Dokumentation: Packer ✅ + Terraform ✅ | Ansible Phase 3+
+- Betriebshinweise für CCs-vorinstalliert-Modus
+
+---
+
 ## v2.0 – 2026-05-06
 
 ### Neu – xoap-Abgleich: windows-vdi-optimize.ps1 angereichert

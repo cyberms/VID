@@ -1,0 +1,29 @@
+# VID Phase 1c – Modul 1: vSphere Variablen (Beispiel)
+# Kopieren nach terraform.tfvars und anpassen
+
+vsphere_server               = "vcenter.corp.example.com"
+vsphere_user                 = "administrator@vsphere.local"
+vsphere_password             = "YOUR_VCENTER_PASSWORD"
+vsphere_allow_unverified_ssl = false
+
+datacenter  = "Datacenter"
+cluster     = "cluster01"
+datastore   = "datastore-vdi"
+network     = "VDI-VLAN100"
+vm_folder   = "Citrix/CloudConnectors"
+
+template_name = "WS2022-Template-DomainJoined"
+
+cc_vm_count       = 2
+cc_vm_name_prefix = "VID-CC"
+cc_cpu_count      = 2
+cc_memory_mb      = 4096
+
+admin_vm_name   = "VID-TF-Admin"
+admin_cpu_count = 2
+admin_memory_mb = 4096
+
+domain                = "corp.example.com"
+domain_admin_user     = "CORP\\svc-terraform"
+domain_admin_password = "YOUR_DOMAIN_ADMIN_PASSWORD"
+cc_ou                 = "OU=CloudConnectors,OU=Citrix,DC=corp,DC=example,DC=com"

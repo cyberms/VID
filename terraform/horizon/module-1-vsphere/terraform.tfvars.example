@@ -1,0 +1,43 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# VID – Horizon Modul 1: terraform.tfvars.example
+# Kopieren → terraform.tfvars und mit echten Werten befüllen
+# Status: SCAFFOLD / FUTURE PHASE
+# ─────────────────────────────────────────────────────────────────────────────
+
+# vSphere Connection
+vsphere_server               = "vcenter.corp.local"
+vsphere_user                 = "administrator@vsphere.local"
+vsphere_password             = "CHANGE_ME"
+vsphere_allow_unverified_ssl = false
+
+# vSphere Topology
+vsphere_datacenter = "Datacenter"
+vsphere_cluster    = "cluster01"
+vsphere_datastore  = "datastore01"
+vsphere_network    = "VID-MGMT"
+vsphere_folder     = "VID/Horizon"
+
+# Template
+template_name = "WS2022-Template"
+
+# Connection Server VMs
+cs_vm_count       = 2
+cs_vm_name_prefix = "VID-HCS"
+cs_num_cpus       = 4
+cs_memory_mb      = 8192
+cs_disk_size_gb   = 80
+
+cs_ip_addresses = ["10.0.1.30", "10.0.1.31"]
+cs_netmask      = "255.255.255.0/24"
+cs_gateway      = "10.0.1.1"
+cs_dns_servers  = ["10.0.1.10", "10.0.1.11"]
+
+# Active Directory
+ad_domain        = "corp.local"
+ad_join_user     = "svc-domain-join"
+ad_join_password = "CHANGE_ME"
+ad_ou_path       = "OU=Servers,OU=VID,DC=corp,DC=local"
+
+# VM Admin
+vm_admin_username = "Administrator"
+vm_admin_password = "CHANGE_ME"

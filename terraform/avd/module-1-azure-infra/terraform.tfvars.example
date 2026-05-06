@@ -1,0 +1,33 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# VID – AVD Modul 1: terraform.tfvars.example
+# Kopieren → terraform.tfvars und mit echten Werten befüllen
+# Status: SCAFFOLD / FUTURE PHASE
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Azure Service Principal
+azure_subscription_id = "00000000-0000-0000-0000-000000000000"
+azure_tenant_id       = "00000000-0000-0000-0000-000000000000"
+azure_client_id       = "00000000-0000-0000-0000-000000000000"
+azure_client_secret   = "CHANGE_ME"
+
+# Umgebung
+environment    = "prod"
+location       = "germanywestcentral"
+location_short = "gwc"
+prefix         = "vid"
+
+# Netzwerk
+vnet_address_space       = "10.10.0.0/16"
+subnet_sessionhosts_cidr = "10.10.1.0/24"
+subnet_mgmt_cidr         = "10.10.2.0/24"
+
+# DNS (für Hybrid Join: On-Prem DC IPs; für AAD Join: leer lassen)
+dns_servers = ["10.0.1.10", "10.0.1.11"]
+
+# Tags
+tags = {
+  Project     = "VID"
+  ManagedBy   = "Terraform"
+  Environment = "prod"
+  CostCenter  = "IT-VDI"
+}
