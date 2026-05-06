@@ -14,8 +14,9 @@
     Inhalt:
       [1]  Power Plan – High Performance, alle Timeouts deaktiviert
       [2]  Page File – system-managed (WMI mit Registry-Fallback)
-      [3]  Services – Telemetrie, SysMain, WSearch, Xbox, Bluetooth, ...
-      [4]  Scheduled Tasks – Diagnostics, CEIP, WU, Xbox, ...
+      [3]  Services – Telemetrie, SysMain, WSearch, Xbox, Bluetooth, Mobile, Sync, ...
+      [3b] WMI Autologger – Boot-Tracing-Sitzungen deaktivieren
+      [4]  Scheduled Tasks – Diagnostics, CEIP, WU, Xbox, Location, DiskCleanup, ...
       [5]  Windows Update – Auto-Update und Delivery Optimization deaktiviert
       [6]  Telemetrie & Datenschutz – Cortana, ActivityHistory, AdvertisingID, ...
       [7]  OneDrive – deaktiviert / deinstalliert
@@ -183,6 +184,62 @@ Disable-ServiceSafely "XboxNetApiSvc"        "Xbox Live Networking Service"
 Disable-ServiceSafely "SpatialDataService"   "Spatial Data Service"
 Disable-ServiceSafely "spectrum"             "Windows Perception Service"
 
+# Mobile / Hotspot / Location (nicht relevant in VDI)
+Disable-ServiceSafely "icssvc"               "Windows Mobile Hotspot Service"
+Disable-ServiceSafely "lfsvc"                "Geolocation Service"
+Disable-ServiceSafely "autotimesvc"          "Cellular Time (Auto Time Zone Updater)"
+
+# Data Sync / Messaging / Wallet (Consumer-Features)
+Disable-ServiceSafely "OneSyncSvc"           "Sync Host (OneDrive Sync etc.)"
+Disable-ServiceSafely "MessagingService"     "Messaging Service"
+Disable-ServiceSafely "WalletService"        "WalletService"
+Disable-ServiceSafely "PimIndexMaintenanceSvc" "Contact Data / PIM Index"
+Disable-ServiceSafely "TabletInputService"   "Touch Keyboard and Handwriting Panel"
+
+# Device / Hardware (nicht vorhanden in VMs)
+Disable-ServiceSafely "WbioSrvc"             "Windows Biometric Service (kein Fingerprint in VMs)"
+Disable-ServiceSafely "SCardSvr"             "Smart Card Service"
+Disable-ServiceSafely "DsmSvc"               "Device Setup Manager"
+Disable-ServiceSafely "DusmSvc"              "Data Usage Service"
+Disable-ServiceSafely "SSDPSRV"              "SSDP Discovery (UPnP)"
+
+# Network Sharing / Printing (nicht benötigt in nicht-persistenten VDI)
+Disable-ServiceSafely "WMPNetworkSvc"        "Windows Media Player Network Sharing"
+Disable-ServiceSafely "Spooler"              "Print Spooler (kein lokaler Drucker in VDI)"
+
+# Offline Files (nicht sinnvoll in nicht-persistenten VMs)
+Disable-ServiceSafely "CscService"           "Offline Files (Client-Side Caching)"
+
+# Windows Insider
+Disable-ServiceSafely "wisvc"                "Windows Insider Service"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [3b] WMI Autologger – Tracing-Sitzungen beim Boot deaktivieren
+# ─────────────────────────────────────────────────────────────────────────────
+
+Write-VIDLog "--- [3b] WMI Autologger ---"
+
+$autologgers = @(
+    "HKLM:\SYSTEM\CurrentControlSet\Control\WMI\Autologger\AppModel",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\WMI\Autologger\CloudExperienceHostOOBE",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\WMI\Autologger\DiagLog",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\WMI\Autologger\ReadyBoot",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\WMI\Autologger\WDIContextLog",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\WMI\Autologger\WiFiDriverIHVSession",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\WMI\Autologger\WiFiSession",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\WMI\Autologger\Cellcore",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\WMI\Autologger\WinPhoneCritical"
+)
+foreach ($al in $autologgers) {
+    try {
+        if (Test-Path $al) {
+            Set-ItemProperty -Path $al -Name "Start" -Value 0 -Type DWord -Force | Out-Null
+            Write-VIDLog "  Autologger deaktiviert: $(Split-Path $al -Leaf)"
+        }
+    }
+    catch { Write-VIDLog "  Autologger FAIL: $(Split-Path $al -Leaf) – $($_.Exception.Message)" "WARN" }
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # [4] Disable Unnecessary Scheduled Tasks
 # ─────────────────────────────────────────────────────────────────────────────
@@ -190,12 +247,17 @@ Disable-ServiceSafely "spectrum"             "Windows Perception Service"
 Write-VIDLog "--- [4] Scheduled Tasks ---"
 
 Disable-ScheduledTaskSafely "\Microsoft\Windows\Application Experience\" "Microsoft Compatibility Appraiser"
+Disable-ScheduledTaskSafely "\Microsoft\Windows\Application Experience\" "PcaPatchDbTask"
 Disable-ScheduledTaskSafely "\Microsoft\Windows\Application Experience\" "ProgramDataUpdater"
 Disable-ScheduledTaskSafely "\Microsoft\Windows\Application Experience\" "StartupAppTask"
 Disable-ScheduledTaskSafely "\Microsoft\Windows\Autochk\"               "Proxy"
 Disable-ScheduledTaskSafely "\Microsoft\Windows\Customer Experience Improvement Program\" "Consolidator"
 Disable-ScheduledTaskSafely "\Microsoft\Windows\Customer Experience Improvement Program\" "UsbCeip"
+Disable-ScheduledTaskSafely "\Microsoft\Windows\Device Information\"    "Device"
+Disable-ScheduledTaskSafely "\Microsoft\Windows\DiskCleanup\"           "SilentCleanup"
 Disable-ScheduledTaskSafely "\Microsoft\Windows\DiskDiagnostic\"        "Microsoft-Windows-DiskDiagnosticDataCollector"
+Disable-ScheduledTaskSafely "\Microsoft\Windows\Location\"              "Notifications"
+Disable-ScheduledTaskSafely "\Microsoft\Windows\Location\"              "WindowsActionDialog"
 Disable-ScheduledTaskSafely "\Microsoft\Windows\Feedback\Siuf\"         "DmClient"
 Disable-ScheduledTaskSafely "\Microsoft\Windows\Feedback\Siuf\"         "DmClientOnScenarioDownload"
 Disable-ScheduledTaskSafely "\Microsoft\Windows\Maps\"                  "MapsToastTask"
@@ -217,9 +279,10 @@ Disable-ScheduledTaskSafely "\Microsoft\XblGameSave\"                   "XblGame
 
 Write-VIDLog "--- [5] Windows Update (disable auto-update in VDI) ---"
 $wuPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
-Set-RegistryValue $wuPath "NoAutoUpdate" 1
-Set-RegistryValue $wuPath "AUOptions"    1    # Never auto-download or auto-install
-Set-RegistryValue $wuPath "UseWUServer"  0
+Set-RegistryValue $wuPath "NoAutoUpdate"              1
+Set-RegistryValue $wuPath "AUOptions"               1    # Never auto-download or auto-install
+Set-RegistryValue $wuPath "UseWUServer"             0
+Set-RegistryValue $wuPath "NoAutoRebootWithLoggedOnUsers" 1  # Kein Zwangs-Reboot bei aktiven Sitzungen
 
 # Disable delivery optimization (P2P bandwidth waste in VDI)
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" "DODownloadMode" 0
@@ -237,6 +300,7 @@ Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search"    
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search"     "CortanaConsent"             0
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"       "DisableWindowsConsumerFeatures" 1
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"       "DisableSoftLanding"          1
+Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR"            "AllowGameDVR"                0
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"     "DoNotShowFeedbackNotifications" 1
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"             "EnableActivityFeed"          0
 Set-RegistryValue "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"             "PublishUserActivities"       0
@@ -291,6 +355,11 @@ Set-NetTCPSetting -SettingName InternetCustom -AutoTuningLevelLocal Normal -Erro
 # DNS-Cache TTL begrenzen (für schnellere Namensauflösung nach Änderungen)
 Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters" "MaxCacheTtl"     300
 Set-RegistryValue "HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters" "NegativeCacheTime" 30
+
+# Multimedia Scheduling – Netzwerk-Priorisierung und System-Reaktionsfähigkeit für VDI
+$mmProfile = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"
+Set-RegistryValue $mmProfile "NetworkThrottlingIndex" 4294967295  # Deaktiviert Netzwerk-Throttling für Multimedia
+Set-RegistryValue $mmProfile "SystemResponsiveness"  0           # Maximale Reaktionsfähigkeit für Vordergrund-Prozesse
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [9] Storage / Filesystem Optimierungen

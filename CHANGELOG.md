@@ -1,5 +1,60 @@
 # Release History
 
+## v2.0 – 2026-05-06
+
+### Neu – xoap-Abgleich: windows-vdi-optimize.ps1 angereichert
+
+Abgleich mit `xoap-image-management-templates-master/scripts/w11/windows11-Optimize_W11_25H2.ps1`:
+
+- **16 zusätzliche Services deaktiviert** (Sektion [3]):
+  - Mobile/Location: `icssvc`, `lfsvc`, `autotimesvc`
+  - Sync/Messaging: `OneSyncSvc`, `MessagingService`, `WalletService`, `PimIndexMaintenanceSvc`, `TabletInputService`
+  - Hardware (nicht in VMs): `WbioSrvc`, `SCardSvr`, `DsmSvc`, `DusmSvc`, `SSDPSRV`
+  - Netzwerk/Druck: `WMPNetworkSvc`, `Spooler`
+  - Sonstiges: `CscService` (Offline Files), `wisvc` (Windows Insider)
+- **Neue Sektion [3b] – WMI Autologger**: 9 Boot-Tracing-Sitzungen deaktiviert
+  (`AppModel`, `CloudExperienceHostOOBE`, `DiagLog`, `ReadyBoot`, `WDIContextLog`, `WiFiDriverIHVSession`, `WiFiSession`, `Cellcore`, `WinPhoneCritical`)
+- **5 zusätzliche Scheduled Tasks** deaktiviert (Sektion [4]):
+  `PcaPatchDbTask`, `Device Information\Device`, `DiskCleanup\SilentCleanup`, `Location\Notifications`, `Location\WindowsActionDialog`
+- **Registry-Ergänzungen**:
+  - WU: `NoAutoRebootWithLoggedOnUsers = 1`
+  - Telemetrie: `AllowGameDVR = 0`
+  - Netzwerk: `NetworkThrottlingIndex = 4294967295`, `SystemResponsiveness = 0` (Multimedia SystemProfile)
+
+### Neu – windows-citrix-pvs-prep.ps1
+
+Vollständige Implementierung für Citrix PVS Master Image Vorbereitung (Layer 7f):
+- PVS-spezifische Services: `Fax`, `RemoteRegistry`, `PhoneSvc`, `WcnSvc`, `StiSvc`, `FrameServer`, `seclogon`
+- Windows Update → Manual (PVS streamt vDisk)
+- Page File: automatisch managed (WMI + Registry-Fallback)
+- Optionaler PVS Target Device Software-Install via `$PvsInstallerPath` / `VID_PVS_INSTALLER_PATH`
+- ScheduledDefrag deaktiviert
+- VID Sentinel: `HKLM:\SOFTWARE\VendorIndependenceDay\Provisioning\PVSPrepApplied`
+- Basiert auf: xoap `windows11-Prepare_For_Citrix_PVS.ps1` + Citrix PVS Best Practices
+
+### Neu – avd/scripted-actions/ (operative Azure PS-Scripts)
+
+21 Azure PowerShell Scripts für AVD-Betrieb aus xoap `scripted-actions-master`:
+- Setup: Resource Group, VNet, Storage, Key Vault, Host Pool, Registration Token, App Group, Workspace
+- Lifecycle: Update/Remove Host Pool, Session Host Drain, User Session Management
+- Quelle: `xoap-io/scripted-actions` (xoap.io)
+- Zweck: Operativer Betrieb (Ergänzung zu terraform/avd/ Phase 2)
+- Voraussetzung: `Az` + `Az.DesktopVirtualization` PowerShell Module
+
+### Referenz – Citrix_Data/ (offizielle Citrix Deployment Guides)
+
+Hinzugefügt als Referenzmaterial (nicht commitet – außerhalb Repo):
+- **Citrix Automation Handbook 2601** (6 Teile) – IaC-Strategie mit Packer + Terraform + Ansible + GitHub
+- **CVAD 2507 LTSR on vSphere 8** – Vollständiger IaC-Deployment-Guide (Packer → Terraform → Ansible)
+- **Terraform vSphere Resource Location** – 3-Modul-Ansatz für Cloud Connector Provisioning
+
+**Erkenntnisse für VID-Roadmap:**
+- `terraform/citrix/` (Phase 1b) ✅ = Machine Catalog + Delivery Group (korrekt)
+- Phase 1c (geplant): `terraform/citrix-resource-location/` = Cloud Connector Provisioning auf vSphere (Modul-Ansatz gemäß Citrix Guide)
+- Citrix empfiehlt **Packer + Terraform + Ansible** Triad – Ansible für Konfiguration die Terraform nicht übernehmen kann (z.B. Domain Join, CC-Registrierung via WinRM)
+
+---
+
 ## v1.9 – 2026-05-06
 
 ### Neue Features – Terraform Phase 1b: Citrix DaaS Infrastructure as Code
