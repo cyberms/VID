@@ -1,4 +1,20 @@
 <#
+    ╔══════════════════════════════════════════════════════════════════════════════╗
+    ║  DEPRECATED / LEGACY – ab VID v1.9                                         ║
+    ║                                                                             ║
+    ║  Dieses Script wird durch Terraform ersetzt:                                ║
+    ║    terraform/citrix/update-image.sh  – Image-Update nach Packer-Build       ║
+    ║                                                                             ║
+    ║  Verwendung (neu):                                                          ║
+    ║    cd terraform/citrix                                                      ║
+    ║    ./update-image.sh                    # liest Packer-Manifest auto.       ║
+    ║    ./update-image.sh --dry-run          # Plan ohne Apply                   ║
+    ║    ./update-image.sh --image "XDHyp:\..." # XDHyp-Pfad manuell             ║
+    ║                                                                             ║
+    ║  Dieses Script bleibt als Fallback erhalten, wird aber nicht mehr aktiv    ║
+    ║  weiterentwickelt.                                                          ║
+    ╚══════════════════════════════════════════════════════════════════════════════╝
+
     .SYNOPSIS
     Aktualisiert das Master Image eines bestehenden Citrix DaaS MCS-Maschinenkatalogs.
 

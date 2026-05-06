@@ -1,4 +1,20 @@
 <#
+    ╔══════════════════════════════════════════════════════════════════════════════╗
+    ║  DEPRECATED / LEGACY – ab VID v1.9                                         ║
+    ║                                                                             ║
+    ║  Dieses Script wird durch Terraform ersetzt:                                ║
+    ║    terraform/citrix/main.tf        – Machine Catalog + Delivery Group       ║
+    ║    terraform/citrix/update-image.sh – Image-Update nach Packer-Build        ║
+    ║                                                                             ║
+    ║  Verwendung (neu):                                                          ║
+    ║    cd terraform/citrix                                                      ║
+    ║    cp terraform.tfvars.example terraform.tfvars   # einmalig                ║
+    ║    terraform init && terraform apply                                        ║
+    ║                                                                             ║
+    ║  Dieses Script bleibt als Fallback erhalten, wird aber nicht mehr aktiv    ║
+    ║  weiterentwickelt.                                                          ║
+    ╚══════════════════════════════════════════════════════════════════════════════╝
+
     .SYNOPSIS
     Deploys or updates a Citrix DaaS (Cloud) MCS Machine Catalog and Delivery Group
     using the Citrix DaaS Remote PowerShell SDK.

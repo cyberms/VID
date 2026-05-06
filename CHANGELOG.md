@@ -1,5 +1,45 @@
 # Release History
 
+## v1.9 – 2026-05-06
+
+### Neue Features – Terraform Phase 1b: Citrix DaaS Infrastructure as Code
+
+- **`terraform/citrix/providers.tf`** – Citrix Terraform Provider `~> 1.0` mit Cloud-Authentifizierung
+- **`terraform/citrix/variables.tf`** – Vollständige Variablen-Deklaration (Credentials, Zone, Hypervisor, Image, Netzwerk, Catalog, Delivery Group)
+- **`terraform/citrix/main.tf`** – Machine Catalog (MCS, nicht-persistent) + Delivery Group mit Autoscale
+  - `citrix_machine_catalog`: Random allocation, MCS-Provisioning, Write-Back-Cache, AD-Naming-Schema
+  - `citrix_delivery_group`: Desktop-Veröffentlichung, AD-Gruppen-Zugriff, Autoscale (Mo–Fr 07:00–18:00)
+- **`terraform/citrix/outputs.tf`** – Outputs: catalog_id, delivery_group_id, master_image_vm, vm_count
+- **`terraform/citrix/terraform.tfvars.example`** – Kommentierte Beispielkonfiguration mit allen Pflichtfeldern
+- **`terraform/citrix/update-image.sh`** – Wrapper-Script für Image-Updates nach Packer-Build
+  - Liest `packer/windows/desktop/11/output/manifest.json` automatisch (jq)
+  - Konstruiert XDHyp-Pfad aus Manifest + bestehender `terraform.tfvars`
+  - Flags: `--dry-run`, `--image`, `--catalog`, `--manifest`
+  - Validiert Voraussetzungen: terraform, jq, terraform.tfvars
+
+### Deprecated – PowerShell-Scripts als Legacy markiert
+
+- **`citrix-mcs/deploy-citrix-mcs.ps1`** → DEPRECATED, ersetzt durch `terraform/citrix/main.tf`
+- **`citrix-mcs/update-image.ps1`** → DEPRECATED, ersetzt durch `terraform/citrix/update-image.sh`
+- Beide Scripts erhalten einen deutlichen Legacy-Header mit Hinweis auf die Terraform-Alternativen
+- Scripts bleiben als Fallback erhalten, werden nicht mehr aktiv weiterentwickelt
+
+### Terraform Quickstart
+
+```bash
+cd terraform/citrix
+cp terraform.tfvars.example terraform.tfvars   # Werte eintragen
+terraform init
+terraform apply
+
+# Nach jedem Packer-Build:
+./update-image.sh                    # Auto-Manifest
+./update-image.sh --dry-run          # Nur Plan
+./update-image.sh --image "XDHyp:\..." # Manueller Pfad
+```
+
+---
+
 ## v1.8 – 2026-05-05
 
 ### Neue Features – Broker-agnostische VDI Optimierungen

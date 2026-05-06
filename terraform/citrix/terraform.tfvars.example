@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# VID – Phase 1b: Terraform Variablen (Beispieldatei)
+# Kopieren nach terraform.tfvars und Werte anpassen.
+# terraform.tfvars ist in .gitignore – niemals committen!
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Citrix Cloud ──────────────────────────────────────────────────────────────
+# Werte aus: Citrix Cloud Console → Identity and Access Management → API Access
+citrix_customer_id   = "YOUR_CUSTOMER_ID"
+citrix_client_id     = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+citrix_client_secret = "YOUR_CLIENT_SECRET"
+citrix_cloud_environment = "eu"   # us | eu | ap-s | jp
+
+# ── Citrix DaaS Zone / Resource Location ─────────────────────────────────────
+# PowerShell: Get-ConfigZone | Select Name, Id
+# citrix_zone_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+citrix_zone_id = "YOUR_ZONE_ID"
+
+# ── vSphere Hosting Connection ────────────────────────────────────────────────
+# PowerShell: Get-HypHypervisorConnection | Select Name, Id
+hypervisor_id = "YOUR_HYPERVISOR_CONNECTION_ID"
+
+# PowerShell: Get-HypHypervisorResourcePool | Select Name, Id
+hypervisor_resource_pool_id = "YOUR_RESOURCE_POOL_ID"
+
+# ── Master Image ──────────────────────────────────────────────────────────────
+# Wird bei jedem Packer-Build via update-image.sh automatisch gesetzt.
+# Format: XDHyp:\Connections\<Verbindung>\<Datacenter>\<Cluster>\<VM>.vm\<Snapshot>.snapshot
+master_image_vm = "XDHyp:\\Connections\\vSphere-euc-demo\\Datacenter.datacenter\\cluster01.cluster\\windows-desktop-11-vid.vm\\packer-snapshot.snapshot"
+
+# ── Netzwerk ──────────────────────────────────────────────────────────────────
+# PowerShell: Get-ChildItem -Path "XDHyp:\Connections\<Name>" -Recurse | Where-Object {$_.ObjectType -eq "Network"}
+network_path = "XDHyp:\\Connections\\vSphere-euc-demo\\Datacenter.datacenter\\network\\VDI-VLAN100.network"
+
+# ── Machine Catalog ───────────────────────────────────────────────────────────
+catalog_name        = "VID-W11-MCS"
+catalog_description = "Windows 11 VDI – Managed by Terraform / VID"
+
+vm_count         = 5
+vm_naming_scheme = "VID-W11-##"   # → VID-W11-01, VID-W11-02, ...
+vm_cpu_count     = 4
+vm_memory_mb     = 4096
+
+writeback_cache_disk_gb   = 15    # MCS I/O Optimization – Write-Back-Cache Disk
+writeback_cache_memory_mb = 256   # MCS I/O Optimization – RAM-Cache
+
+# ── Active Directory ──────────────────────────────────────────────────────────
+domain    = "corp.example.com"
+domain_ou = "OU=VDI-Desktops,OU=VID,DC=corp,DC=example,DC=com"
+
+# ── Delivery Group ────────────────────────────────────────────────────────────
+delivery_group_name        = "VID-W11-Desktop-Pool"
+delivery_group_description = "Windows 11 Desktop Pool – Managed by Terraform / VID"
+desktop_published_name     = "Windows 11 Desktop"
+
+# AD-Gruppen mit Zugriff (DOMAIN\Gruppe oder gruppe@domain.com)
+user_groups = [
+  "CORP\\Citrix-Desktop-Users"
+]
